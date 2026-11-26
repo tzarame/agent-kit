@@ -1,0 +1,14 @@
+{
+  "agent": "dev",
+  "model": "haiku",
+  "tools": [
+    "Bash",
+    "Read",
+    "Edit",
+    "Write",
+    "Skill",
+    "Agent",
+    "ToolSearch"
+  ],
+  "context_window": 133000
+}

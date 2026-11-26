@@ -1,0 +1,2007 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Control centre</title>
+<style>
+/* the look of the kit's design (the change control-panel): dark, a grid behind, square panels with two marked
+   corners, one accent a part. No font is loaded: the policy of the page allows none from outside */
+:root { color-scheme: dark; --bg:#0A0C0F; --card:#11141A; --card2:#161A21; --fg:#EDF1F6; --dim:#97A1B0; --line:#2A303A;
+  --chip:#ffffff12; --cy:#22E3FF; --mg:#FF4FD8; --lm:#B6FF3C; --am:#FFB627; --vi:#9B8CFF; --rd:#FF6B6B;
+  --accent:var(--cy); --ok:var(--lm); --warn:var(--am); --hot:var(--rd); --c:var(--cy);
+  --sans:Inter, system-ui, sans-serif; --head:"Space Grotesk", Inter, system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+* { box-sizing: border-box; }
+body { margin:0; color:var(--fg); font:14px/1.5 var(--sans); overflow-x:hidden; background-color:var(--bg);
+  background-image:linear-gradient(#ffffff08 1px, transparent 1px), linear-gradient(90deg, #ffffff08 1px, transparent 1px);
+  background-size:32px 32px; }
+a { color:var(--cy); } a:hover { color:#8CF1FF; }
+header { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:14px 24px; background:#0D1014;
+  border-bottom:1px solid var(--line); position:relative; overflow:hidden; }
+header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:1px;
+  background:linear-gradient(90deg, transparent, var(--cy), var(--mg), transparent); animation:scan 5s linear infinite; }
+header svg { flex:none; filter:drop-shadow(0 0 6px var(--cy)); }
+h1, h2, h3 { font-family:var(--head); margin:0; letter-spacing:.01em; }
+h1 { font-size:18px; text-transform:uppercase; } h2 { font-size:17px; } h3 { font-size:15px; }
+header small, .head small, #stamp { font:600 11px/1.3 var(--mono); letter-spacing:.12em; text-transform:uppercase; }
+.dim, small { color:var(--dim); } small { font-size:12px; overflow-wrap:anywhere; }
+main { padding:20px 24px 40px; display:grid; gap:20px; min-width:0; }
+#by-machine, #by-group { display:grid; gap:20px; min-width:0; }
+section, .panel { position:relative; background:var(--card); border:1px solid var(--line); min-width:0; }
+section::before, section::after, .panel::before, .panel::after { content:""; position:absolute; width:10px; height:10px;
+  border:2px solid var(--c); pointer-events:none; }
+section::before, .panel::before { top:-1px; left:-1px; border-right:0; border-bottom:0; }
+section::after, .panel::after { bottom:-1px; right:-1px; border-left:0; border-top:0; }
+section[aria-labelledby="costs-h"] { --c:var(--lm); } section[aria-labelledby="survey-h"] { --c:var(--vi); }
+section[aria-labelledby="links-h"] { --c:var(--am); } #update-run { --c:var(--am); } #incus { --c:var(--mg); }
+#by-group section { --c:var(--mg); }
+.head { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:14px 18px; border-bottom:1px solid var(--line); }
+.grow { flex:1; min-width:0; }
+.body { padding:16px 18px; display:grid; gap:14px; min-width:0; }
+.cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap:14px; }
+.cards > * { min-width:0; }
+.card, .mcard, .gcard { background:var(--card2); border:1px solid var(--line); padding:14px 16px; display:grid; gap:10px;
+  align-content:start; min-width:0; transition:border-color .2s; }
+.card:hover, .mcard:hover, .gcard:hover { border-color:#465064; }
+.card .top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.dot { display:inline-block; width:8px; height:8px; background:var(--dim); margin-right:8px; }
+.on .dot { background:var(--lm); box-shadow:0 0 10px var(--lm); animation:pulse 1.8s ease-in-out infinite; }
+.on { color:var(--lm); font-weight:600; }
+.chip { display:inline-block; font:600 11px/1.4 var(--mono); letter-spacing:.06em; padding:2px 8px; border:1px solid var(--line);
+  color:var(--dim); }
+.chip.warn { color:var(--am); border-color:var(--am); } .chip.hot { color:var(--rd); border-color:var(--rd); }
+code { font:12px var(--mono); color:var(--dim); overflow-wrap:anywhere; }
+dl { display:grid; grid-template-columns:auto 1fr; gap:4px 14px; margin:0; font-size:13px; }
+dt { color:var(--dim); overflow-wrap:anywhere; } dd { margin:0; overflow-wrap:anywhere; font-family:var(--mono); }
+.mcard dl { grid-template-columns:minmax(0, 11rem) minmax(0, 1fr); }
+.mcard dt { overflow-wrap:anywhere; } .mcard dd { min-width:0; }
+.bar { width:140px; max-width:100%; height:8px; background:var(--chip); overflow:hidden; margin:3px 0; display:inline-block; }
+.bar i { display:block; height:100%; background:var(--lm); box-shadow:0 0 12px var(--lm); }
+.bar i.warn { background:var(--am); box-shadow:0 0 12px var(--am); } .bar i.hot { background:var(--rd); box-shadow:0 0 12px var(--rd); }
+button { font:600 13px var(--sans); color:var(--fg); background:transparent; border:1px solid var(--line); border-radius:0;
+  padding:0 14px; min-height:44px; min-width:44px; cursor:pointer; transition:border-color .2s, box-shadow .2s; }
+button:hover:not(:disabled) { border-color:var(--cy); box-shadow:0 0 0 1px var(--cy), 0 0 18px #22e3ff55; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible, pre:focus-visible, [tabindex]:focus-visible { outline:2px solid var(--lm); outline-offset:2px; }
+button.main { background:var(--cy); border-color:var(--cy); color:#04141A; } button.stop { color:var(--rd); }
+button.stop:hover:not(:disabled) { border-color:var(--rd); box-shadow:0 0 0 1px var(--rd), 0 0 18px #ff6b6b55; }
+button[aria-expanded="true"], button[aria-pressed="true"] { border-color:var(--cy); color:var(--cy); box-shadow:inset 0 -2px 0 var(--cy); }
+button:disabled { opacity:.45; cursor:default; }
+.row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; min-width:0; }
+.row input { flex:1 1 160px; min-width:0; }
+form.row > .grow { flex:1 1 14rem; }   /* a long label (the key form) takes its own line on a phone */
+.empty, .error { padding:16px; color:var(--dim); } .error { color:var(--rd); border:1px solid var(--rd); background:var(--card); }
+.note { font-size:13px; color:var(--am); margin:0; }
+.note.bad, .bad { color:var(--rd); }
+.wrap { overflow-x:auto; max-width:100%; }
+table { border-collapse:collapse; width:100%; }
+th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:middle; }
+th { font:600 11px/1.3 var(--mono); color:var(--dim); text-transform:uppercase; letter-spacing:.12em; }
+tr:last-child td { border-bottom:0; }
+dialog { border:1px solid var(--line); background:var(--card); color:var(--fg); padding:22px; width:min(560px, 94vw);
+  box-shadow:0 0 0 1px #000, 0 0 40px #22e3ff22; }
+dialog::backdrop { background:rgba(4,6,9,.72); }
+form .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:14px 0; } form .wide { grid-column:1 / -1; }
+label { display:grid; gap:6px; font-size:12px; color:var(--dim); min-width:0; }
+input, select, textarea { font:inherit; font-size:14px; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:0;
+  padding:6px 10px; min-height:44px; width:100%; min-width:0; }
+input:hover, select:hover, textarea:hover { border-color:#465064; }
+::placeholder { color:#6B7585; }
+.check { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--fg); white-space:nowrap; min-height:44px; }
+.check input, input[type=checkbox] { width:auto; min-height:0; padding:0; margin:0 6px 0 0; vertical-align:middle; accent-color:var(--cy); }
+[hidden] { display:none !important; }
+/* the parts put off (PARKED in the script): in the page, not shown */
+body[data-parked~="update"] [data-parked="update"], body[data-parked~="agent-form"] [data-parked="agent-form"],
+body[data-parked~="ssh-add"] [data-parked="ssh-add"], body[data-parked~="incus"] [data-parked="incus"] { display:none !important; }
+
+/* panels opened from a card or from a machine */
+.slot { min-width:0; }
+.slot:empty { display:none; }
+.panel { background:var(--card2); --c:var(--mg); }
+.panel .head { padding:12px 16px; }
+.panel .body { padding:14px 16px; display:grid; gap:12px; min-width:0; }
+.editor { display:grid; gap:14px; min-width:0; }
+.editor textarea { font:13px/1.45 var(--mono); min-height:200px; resize:vertical; }
+.md { min-width:0; overflow:auto; max-height:60vh; overflow-wrap:anywhere; border:1px solid var(--line); padding:10px 12px; background:var(--bg); }
+.md h1 { font-size:18px; text-transform:none; } .md h2 { font-size:16px; } .md h3, .md h4 { font-size:14px; }
+.md h1, .md h2, .md h3, .md h4 { margin:.6em 0 .3em; }
+.md p { margin:.4em 0; white-space:pre-line; }
+.md ul, .md ol { margin:.4em 0; padding-left:1.6em; }
+.md li.task { list-style:none; margin-left:-1.2em; }
+.md hr { border:0; border-top:1px solid var(--line); margin:.8em 0; }
+.md code { font:12px var(--mono); color:var(--fg); background:var(--chip); padding:0 4px; overflow-wrap:normal; }
+.md pre { background:var(--chip); padding:8px; overflow:auto; max-width:100%; }
+.md pre code { background:none; padding:0; }
+ul.files, ul.plain { list-style:none; margin:0; padding:0; min-width:0; display:grid; gap:0; }
+ul.files li, ul.plain li { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; padding:10px 0; border-bottom:1px solid var(--line); min-width:0; }
+ul.files li:last-child, ul.plain li:last-child { border-bottom:0; }
+ul.files li button { overflow-wrap:anywhere; text-align:left; max-width:100%; }
+ul.plain li .grow { flex:1 1 180px; overflow-wrap:anywhere; }
+ul.log { max-height:260px; overflow:auto; } ul.log li { padding:6px 0; } .mono { font-family:var(--mono); }
+details > summary { min-height:44px; display:flex; align-items:center; cursor:pointer; color:var(--dim); font-size:13px; }
+ul.plain li.costrow { flex-wrap:wrap; }
+ul.plain li.costrow .slot { flex:1 1 100%; }
+.kit { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; font-size:13px; }
+.update-list li { display:flex; flex-wrap:wrap; gap:4px 10px; }
+.screen { font:12px/1.4 var(--mono); color:var(--fg); background:var(--bg); border:1px solid var(--line); padding:10px; margin:0; max-height:360px; min-height:80px; overflow:auto; white-space:pre; max-width:100%; min-width:0; }
+#cost-total { font-family:var(--mono); }
+
+/* the centre's own parts: machines, found, groups */
+.machines, .groups { display:grid; gap:14px; min-width:0; }
+.mcard { border-left:2px solid var(--vi); } .gcard { border-left:2px solid var(--mg); }
+.mcard .top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.mcard .top .grow { overflow-wrap:anywhere; }
+.mcard h2 { overflow-wrap:anywhere; }
+.nobreak { white-space:nowrap; }
+@keyframes pulse { 50% { opacity:.35; } }
+@keyframes scan { from { transform:translateX(-100%); } to { transform:translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
+@media (min-width: 721px) { .editor.two { display:grid; grid-template-columns:1fr 1fr; } }
+@media (max-width: 820px) { main, header { padding-left:16px; padding-right:16px; } }
+@media (max-width: 560px) {
+  form .grid { grid-template-columns:1fr; }
+  dl { grid-template-columns:1fr; gap:0 0; }
+  .mcard dl { grid-template-columns:minmax(0, 1fr); }
+  dt { margin-top:6px; } dd { margin-bottom:2px; }
+  .screen { font-size:11px; }
+}
+</style>
+<header><svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><path d="M3 3h26v26H3z" fill="none" stroke="#22E3FF" stroke-width="2"/><path d="M9 22 16 9l7 13M12 18h8" fill="none" stroke="#FF4FD8" stroke-width="2"/></svg><h1>Control centre</h1><span class="grow"></span><small id="ver"></small></header>
+<main>
+  <div id="notice" class="error" role="alert" hidden></div>
+  <p id="others" class="note" role="status" hidden></p>
+  <section aria-labelledby="costs-h">
+    <div class="head"><h2 id="costs-h">Costs</h2><span class="grow"></span><small class="dim">estimate at API prices</small></div>
+    <div class="body">
+      <div id="cost-periods" class="row" role="group" aria-label="Period"></div>
+      <p id="cost-total" class="dim" role="status">Loading costs...</p>
+      <div id="cost-rows"><p class="empty">Loading costs...</p></div>
+      <h3 id="leaks-h">Where tokens leak</h3>
+      <div id="leak-rows"><p class="empty">Loading...</p></div>
+    </div>
+  </section>
+  <div class="row">
+    <div class="row" role="group" aria-label="View">
+      <button id="view-machine" type="button" aria-pressed="true">By machine</button>
+      <button id="view-group" type="button" aria-pressed="false">By group</button>
+    </div>
+    <span class="grow"></span><small id="stamp"></small>
+  </div>
+
+  <div id="by-machine">
+    <section>
+      <div class="head"><h2>Machines</h2><span class="grow"></span><small class="dim">added here</small></div>
+      <div class="body">
+        <div class="row" data-parked="update"><p id="outdated" class="note" role="status"></p><span class="grow"></span>
+          <button id="update-all" class="main" type="button" disabled>Update all</button></div>
+        <div id="machines" class="machines"><p class="empty">Loading machines...</p></div>
+      </div>
+    </section>
+    <section id="update-run" data-parked="update" hidden>
+      <div class="head"><h2>Update</h2><span class="grow"></span><small class="dim">the agents keep running</small></div>
+      <div class="body"><ul id="update-list" class="plain update-list"></ul></div>
+    </section>
+    <section>
+      <div class="head"><h2>Found on the network</h2><span class="grow"></span><small class="dim">not added</small></div>
+      <div class="body"><ul id="found" class="plain"><li class="dim">Looking for machines...</li></ul></div>
+    </section>
+    <section aria-labelledby="survey-h">
+      <div class="head"><h2 id="survey-h">Machines the centre can sign in to</h2><span class="grow"></span><small class="dim">read over SSH, nothing is changed</small></div>
+      <div class="body">
+        <div class="row"><p id="survey-say" class="note" role="status">Not asked yet.</p><span class="grow"></span>
+          <button id="survey-run" type="button">Ask the machines</button></div>
+        <ul id="survey" class="plain"></ul>
+        <details id="survey-log-box" hidden>
+          <summary id="survey-log-sum">Log</summary>
+          <ul id="survey-log" class="plain log" aria-label="Machines that did not let the centre in"></ul>
+        </details>
+      </div>
+    </section>
+    <section aria-labelledby="links-h">
+      <div class="head"><h2 id="links-h">Links of the agents</h2><span class="grow"></span><small class="dim">base addresses only</small></div>
+      <div class="body">
+        <form id="links" class="editor">
+          <div class="grid" style="margin:0">
+            <label>Grafana address (logs), http or https<input name="grafana" autocomplete="off" spellcheck="false" placeholder="https://HOST"></label>
+            <label>Langfuse address (traces), http or https<input name="langfuse" autocomplete="off" spellcheck="false" placeholder="https://HOST"></label>
+            <label>Repository for the settings (owner/name)<input name="repo" autocomplete="off" spellcheck="false" placeholder="owner/name"></label>
+            <label data-parked="ssh-add">Owner's public key (one line; put on the machines added over SSH)<input name="owner_key" autocomplete="off" spellcheck="false" placeholder="ssh-ed25519 AAAA..."></label>
+            <label data-parked="ssh-add">Install command (empty for the default)<input name="install_cmd" maxlength="500" autocomplete="off" spellcheck="false"></label>
+            <label>SSH key file (full path; empty for ssh's own key)<input name="ssh_key" maxlength="400" autocomplete="off" spellcheck="false" placeholder="/home/USER/.ssh/id_ed25519"></label>
+            <label>SSH user when root is refused (empty for the centre's user)<input name="ssh_user" maxlength="32" autocomplete="off" spellcheck="false"></label>
+            <label data-parked="incus">Incus address (https://...), inside Tailscale<input name="incus_url" autocomplete="off" spellcheck="false" placeholder="https://HOST:8443"></label>
+            <label data-parked="incus">Incus project (empty for default)<input name="incus_project" maxlength="63" autocomplete="off" spellcheck="false"></label>
+          </div>
+          <p class="dim" style="margin:0">Each agent gets a link to these addresses. The link opens the base address only: find the agent there.</p>
+          <div class="row"><button class="main" type="submit">Save links</button></div>
+          <p id="links-error" class="note bad" role="alert" hidden></p>
+        </form>
+        <div class="row">
+          <button id="repo-save" type="button" disabled>Save to the repository</button>
+          <button id="repo-load" type="button" disabled>Load from the repository</button>
+          <span id="repo-result" class="note" role="status"></span>
+        </div>
+        <p class="dim" style="margin:0">The repository keeps the machines (without their keys), the groups and the links, in one file centre.json on its default branch. Keys stay here. The repository must be signed in with gh.</p>
+      </div>
+    </section>
+    <p id="incus-unset" class="dim" data-parked="incus" hidden>Incus is not set: name its address in the settings</p>
+    <section id="incus" aria-labelledby="incus-h" data-parked="incus" hidden>
+      <div class="head"><h2 id="incus-h">Incus machines</h2><span class="grow"></span>
+        <small class="dim">made and run with Incus, inside Tailscale</small>
+        <button id="incus-refresh" type="button">Refresh</button></div>
+      <div class="body">
+        <p id="incus-say" class="note" role="status" hidden></p>
+        <ul id="incus-list" class="plain"></ul>
+        <form id="incus-make" class="editor">
+          <h3 style="margin:14px 0 4px">Make a machine</h3>
+          <div class="grid" style="margin:0">
+            <label>Name<input name="name" required maxlength="63" autocomplete="off" spellcheck="false"></label>
+            <label>Profile<select name="profile" required></select></label>
+            <label>Image<select name="image" required></select></label>
+          </div>
+          <p class="dim" style="margin:0">Cloud-init of the profile:</p>
+          <pre id="incus-cloud" class="screen" tabindex="0" aria-label="Cloud-init of the profile"></pre>
+          <div class="row"><button class="main" type="submit">Make</button></div>
+          <p id="incus-error" class="note bad" role="alert" hidden></p>
+        </form>
+      </div>
+    </section>
+    <section>
+      <div class="head"><h2>Add a machine</h2></div>
+      <div class="body">
+        <form id="add" class="editor">
+          <div class="grid" style="margin:0">
+            <label>Name<input name="name" required maxlength="64" autocomplete="off"></label>
+            <label>Address<input name="address" required placeholder="http://HOST:PORT" autocomplete="off" spellcheck="false"></label>
+            <label class="wide">Key, if the machine asks for one (kept in the centre, never shown again)
+              <input name="key" type="password" autocomplete="off" spellcheck="false"></label>
+          </div>
+          <div class="row"><button class="main" type="submit">Add machine</button></div>
+          <p id="add-error" class="note bad" role="alert" hidden></p>
+        </form>
+        <form id="ssh-add" class="editor" data-parked="ssh-add">
+          <h3 style="margin:14px 0 4px">Add over SSH</h3>
+          <p class="dim" style="margin:0">The centre signs in to the machine, installs the kit and its dashboard, and adds the machine here.</p>
+          <div class="grid" style="margin:0">
+            <label>Name<input name="name" required maxlength="64" autocomplete="off"></label>
+            <label>Address (host name or IP)<input name="address" required autocomplete="off" spellcheck="false"></label>
+            <label>User<input name="user" value="agent" autocomplete="off" spellcheck="false"></label>
+            <label>Password (asked once, not kept)<input name="password" type="password" autocomplete="off"></label>
+          </div>
+          <p class="dim" style="margin:0">The command that runs on the machine: <code id="ssh-cmd"></code></p>
+          <p class="dim" style="margin:0">The centre's public key: <code id="ssh-pub">loading...</code>
+            <button type="button" id="ssh-copy">Copy</button>. Put it in the machine's authorized_keys or cloud-init to need no password.</p>
+          <div class="row"><button class="main" type="submit">Install and add</button></div>
+          <ol id="ssh-steps" role="status"></ol>
+          <p id="ssh-error" class="note bad" role="alert" hidden></p>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <div id="by-group" hidden>
+    <section>
+      <div class="head"><h2>Groups</h2><span class="grow"></span><small class="dim">for the eye only: a group has no actions</small></div>
+      <div class="body">
+        <form id="group-make" class="row">
+          <label class="grow">New group name<input id="group-new" maxlength="64" autocomplete="off"></label>
+          <button class="main" type="submit">Create group</button>
+        </form>
+        <div id="groups" class="groups"><p class="empty">Loading groups...</p></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<dialog id="form">
+  <form id="profile" method="dialog">
+    <h2 id="form-title">New agent</h2>
+    <div class="grid">
+      <label>Name<input name="name" required maxlength="40"></label>
+      <label>Label (task label for the costs, for example 267)<input name="label" maxlength="40"></label>
+      <label>Folder (absolute)<input name="dir" required></label>
+      <label>Role<input name="role" value="development"></label>
+      <label>Mode<select name="mode"><option value="works">works</option><option value="qa">qa</option></select></label>
+      <label>Model<input name="model" value="haiku"></label>
+      <label>Effort<input name="effort" value="low"></label>
+      <label>Subagent model<input name="subm" value="haiku"></label>
+      <label>Subagent effort<input name="sube" value="low"></label>
+      <label>Window<input name="window" inputmode="numeric"></label>
+      <label>Subs<select name="subs"><option value="manual">manual</option><option value="auto">auto</option></select></label>
+      <label>Launch<select name="launch"><option value="tmux">tmux</option><option value="code-server">code-server</option><option value="vscode">vscode</option></select></label>
+      <label>Add-ons<input name="addons" placeholder="comma separated"></label>
+      <label class="check wide"><input type="checkbox" name="autostart"> start at login</label>
+      <label class="check wide"><input type="checkbox" name="fresh" checked> new conversation on start</label>
+    </div>
+    <div class="row">
+      <button id="save" class="main" type="submit">Save</button>
+      <button id="cancel" type="button">Cancel</button>
+      <span class="grow"></span>
+      <button id="delete" class="stop" type="button" hidden>Delete</button>
+    </div>
+    <p id="form-error" class="note bad" hidden></p>
+  </form>
+</dialog>
+
+<script>
+"use strict";
+const API = "/api/v1";
+const NOT_IN = "not in this version";
+const $ = (id) => document.getElementById(id);
+const clock = () => new Date().toLocaleTimeString();
+// The parts put off: their code stays, the page does not show them and asks nothing for them. Take a name out of
+// the list to bring its part back. "update" and "agent-form" call routes the dashboard does not have (/update,
+// /version, /profiles); "ssh-add" runs the old kit's install; "incus" was never tried on a real server.
+const PARKED = new Set(["update", "agent-form", "ssh-add", "incus"]);
+const parked = (name) => PARKED.has(name);
+document.body.dataset.parked = [...PARKED].join(" ");
+let views = [];           // state.machines: each machine as the centre last saw it
+let groups = [];          // state.groups
+let found = [];           // state.found: dashboards on the network that are not added
+let others = [];          // state.other_centres
+let centreVersion = "";
+let formFor = null;       // {machine, id} while the profile form is open; id null for a new agent
+let renderedKey = "";
+const live = new Map();   // scope ("agent:MACHINE:ID" or "machine:MACHINE") -> { kind, node, stop }
+const TERM_KEYS = [["Enter", "Enter"], ["Tab", "Tab"], ["Escape", "Escape"], ["Up", "Up"], ["Down", "Down"], ["Left", "Left"],
+  ["Right", "Right"], ["BSpace", "Backspace"], ["C-c", "Ctrl+C"], ["C-d", "Ctrl+D"], ["C-l", "Ctrl+L"]];
+const TEL_FIELDS = [
+  ["logs_url", "VictoriaLogs address"], ["logs_user", "VictoriaLogs user"], ["logs_password", "VictoriaLogs password"],
+  ["traces_to", "Traces go to"],
+  ["traces_url", "VictoriaTraces address"], ["traces_user", "VictoriaTraces user"], ["traces_password", "VictoriaTraces password"],
+  ["langfuse_url", "Langfuse address"], ["langfuse_public_key", "Langfuse public key"], ["langfuse_secret_key", "Langfuse secret key"],
+];
+let settings = { grafana: "", langfuse: "" };   // the centre's link addresses (settings.json); links only
+let arrivals = {};        // machine name -> its /telemetry/arrives answer, or {error}
+let checks = {};          // machine name -> its /telemetry/check answer, or {error}
+
+// pure:begin
+// Pure decisions and sums: no DOM, no network. The page's test runs them in node.
+function isOutdated(ver) { return !!ver && ver.outdated === true; }
+// A link is shown only for an http or https address with a host.
+function isLink(text) {
+  try {
+    const u = new URL(String(text));
+    return (u.protocol === "http:" || u.protocol === "https:") && !!u.hostname;
+  } catch (e) { return false; }
+}
+function answered(ver) { return !!ver && !ver.missing && !ver.unreachable; }
+// One machine's costs for the period: the main and subagent money (nulls skipped) and the total (null when not priced).
+function costParts(data) {
+  const sum = (xs) => xs.reduce((n, x) => (x === null || x === undefined ? n : n + x), 0);
+  const agents = Array.isArray(data.agents) ? data.agents : [];
+  return {
+    main: sum(agents.map((a) => a.main.usd)),
+    subagents: sum(agents.map((a) => a.subagents.usd)),
+    usd: data.total.usd === undefined ? null : data.total.usd,
+    partial: !!data.total.usd_partial,   // a newer dashboard: the priced part is in usd, a model has no price
+  };
+}
+// rows: [{name, parts}]; parts is null for a machine left out. Money of a machine without a price is not in the total.
+function sumCosts(rows) {
+  const t = { counted: 0, of: rows.length, main: 0, subagents: 0, usd: 0, unpriced: [] };
+  for (const r of rows) {
+    if (!r.parts) continue;
+    t.counted += 1;
+    t.main += r.parts.main;
+    t.subagents += r.parts.subagents;
+    if (r.parts.usd === null) t.unpriced.push(r.name); else { t.usd += r.parts.usd; if (r.parts.partial) t.unpriced.push(r.name); }
+  }
+  if (t.counted && rows.every((r) => !r.parts || r.parts.usd === null)) t.usd = null;
+  return t;
+}
+// The analyst's rules of a machine's dashboard (dashboard/analyst.py), in the order shown, with a short head.
+const LEAK_RULES = [["cache_miss", "Cache missed"], ["cold_start", "Cold start"], ["big_result", "Big result"],
+  ["compact_often", "Early compaction"], ["tool_loop", "Tool loop"], ["subagent_share", "Subagents over half"]];
+// rows: [{name, leaks}]; leaks is a machine's answer of /analyst, or null. -> per machine and in all: the count by
+// rule and the tokens lost. A rule the machine does not know counts as 0.
+function sumLeaks(rows) {
+  const t = { counted: 0, of: rows.length, count: {}, tokens: 0, machines: [] };
+  for (const [r] of LEAK_RULES) t.count[r] = 0;
+  for (const row of rows) {
+    const rules = row.leaks && row.leaks.rules && typeof row.leaks.rules === "object" ? row.leaks.rules : null;
+    if (!rules) continue;
+    const m = { name: row.name, count: {}, tokens: 0 };
+    for (const [r] of LEAK_RULES) {
+      const x = rules[r] || {};
+      m.count[r] = Number(x.count) || 0;
+      m.tokens += Number(x.tokens) || 0;
+      t.count[r] += m.count[r];
+    }
+    t.counted += 1;
+    t.tokens += m.tokens;
+    t.machines.push(m);
+  }
+  return t;
+}
+// list: [{name, ver}]; ver is null when the machine did not tell its version
+function outdatedSummary(list) {
+  const s = { n: 0, m: 0, unknown: 0 };
+  for (const x of list) {
+    if (!x.ver) { s.unknown += 1; continue; }
+    s.m += 1;
+    if (isOutdated(x.ver)) s.n += 1;
+  }
+  return s;
+}
+// pure:end
+
+function el(tag, props, kids) {
+  const n = document.createElement(tag);
+  for (const k in (props || {})) {
+    if (k === "cls") n.className = props[k];
+    else if (k === "on") n.addEventListener("click", props[k]);
+    else if (k === "disabled") n.disabled = props[k];
+    else n.setAttribute(k, props[k]);
+  }
+  for (const c of kids || []) if (c != null) n.append(typeof c === "string" ? document.createTextNode(c) : c);
+  return n;
+}
+
+// Rebuilds a list and puts the keyboard focus back on the control with the same data-fid, if it had one.
+function keepFocus(fn) {
+  const active = document.activeElement;
+  const fid = active && active.dataset ? active.dataset.fid : undefined;
+  fn();
+  if (!fid) return;
+  for (const n of document.querySelectorAll("[data-fid]")) {
+    if (n.dataset.fid === fid) { n.focus(); break; }
+  }
+}
+
+function notice(text) {
+  const box = $("notice");
+  box.textContent = text || "";
+  box.hidden = !text;
+}
+
+// The one place that builds an address: a machine's dashboard through the centre's pass-through, or the centre
+// itself when machine is null.
+function api(machine, path) {
+  return machine === null ? API + path : API + "/machines/" + encodeURIComponent(machine) + API + path;
+}
+
+function isOlder(name) {
+  const v = views.find((x) => x.name === name);
+  return !!(v && v.older);
+}
+
+async function call(machine, method, path, body) {
+  const headers = {};
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const r = await fetch(api(machine, path), { method, headers, body: body === undefined ? undefined : JSON.stringify(body), cache: "no-store" });
+  let data = {};
+  try { data = await r.json(); } catch (e) { data = {}; }
+  if (!r.ok) {
+    // a dashboard older than the centre may not have the route: that part is shown as not in this version
+    const old = machine !== null && isOlder(machine);
+    const err = new Error(r.status === 404 && old ? NOT_IN : (data.error || ("HTTP " + r.status)));
+    err.status = r.status;
+    throw err;
+  }
+  return data;
+}
+
+function gib(n) { return (n / 1024 ** 3).toFixed(1) + " GiB"; }
+
+// a field of a dashboard's answer: missing in an older dashboard, empty in a new one
+function txt(x) { return x === undefined ? NOT_IN : x === null || x === "" ? "-" : String(x); }
+
+function machineRows(m) {
+  if (!m) return [el("dt", {}, ["Machine"]), el("dd", { cls: "dim" }, [NOT_IN])];
+  const rows = [
+    ["Name", txt(m.name)], ["User", txt(m.user)],
+    ["Load", m.load ? m.load.join(" / ") + "  (" + m.cores + " cores)" : "unknown"],
+  ];
+  if (m.memory) rows.push(["Memory", gib(m.memory.used) + " of " + gib(m.memory.total)]);
+  const out = [];
+  for (const [k, v] of rows) out.push(el("dt", {}, [k]), el("dd", {}, [String(v)]));
+  for (const d of m.disks || []) {
+    const text = d.free === undefined ? "unknown" : gib(d.free) + " free of " + gib(d.total);
+    out.push(el("dt", {}, ["Disk " + d.path]), el("dd", {}, [text, " ", d.low ? el("span", { cls: "chip warn" }, ["low"]) : ""]));
+  }
+  return out;
+}
+
+function contextText(c) {
+  if (!c) return "no conversation yet";
+  return c.tokens.toLocaleString() + " tokens, last at " + new Date(c.time).toLocaleString();
+}
+
+// Panels. A card or a machine holds at most one open panel. The panel node is kept in `live`, so a refresh of the
+// cards moves it into the new card instead of rebuilding it (its text and timers stay).
+function agentScope(mn, id) { return "agent:" + mn + ":" + id; }
+function machineScope(mn) { return "machine:" + mn; }
+
+function syncTools() {
+  for (const b of document.querySelectorAll("button[data-scope]")) {
+    const cur = live.get(b.dataset.scope);
+    b.setAttribute("aria-expanded", String(!!cur && cur.kind === b.dataset.kind));
+  }
+}
+
+async function closeFor(scope) {
+  const cur = live.get(scope);
+  if (!cur) return;
+  live.delete(scope);
+  cur.node.remove();
+  syncTools();
+  await cur.stop();
+}
+
+async function toggle(scope, kind, make) {
+  const cur = live.get(scope);
+  await closeFor(scope);
+  if (cur && cur.kind === kind) { syncTools(); return; }
+  const made = make();
+  live.set(scope, { kind, node: made.node, stop: made.stop, update: made.update });
+  const slot = document.querySelector('[data-slot="' + scope + '"]');
+  if (slot) slot.append(made.node);
+  syncTools();
+}
+
+function panelNode(scope, title, tools, body) {
+  return el("div", { cls: "panel" }, [
+    el("div", { cls: "head" }, [el("h3", { cls: "grow" }, [title]), ...tools,
+      el("button", { type: "button", on: () => closeFor(scope) }, ["Close"])]),
+    el("div", { cls: "body" }, body),
+  ]);
+}
+
+// The saver keeps the newest value and writes it 1.5 s after the last change, or at once on flush.
+// Writes run one after another; a write that fails shows its own message and does not stop the next one.
+function makeSaver(doSave) {
+  let timer = null, pending = null, chain = Promise.resolve();
+  const flush = () => {
+    clearTimeout(timer); timer = null;
+    if (pending === null) return chain;
+    const v = pending; pending = null;
+    chain = chain.then(() => doSave(v)).catch(() => {});
+    return chain;
+  };
+  return {
+    change(v) { pending = v; clearTimeout(timer); timer = setTimeout(flush, 1500); },
+    flush,
+  };
+}
+
+// markdown:begin
+// Renders the notes as DOM nodes: createElement, textContent and setAttribute only. A link is kept only when its address
+// is an http or https address; anything else stays plain text.
+const MD_LINK = /^https?:\/\/[^\s)]+$/;
+function mdInline(text) {
+  const out = [];
+  const re = /`([^`]+)`|\*\*([^*]+)\*\*|\*([^*\s][^*]*)\*|\[([^\]]+)\]\(([^)\s]+)\)/g;
+  let last = 0, m;
+  while ((m = re.exec(text))) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    if (m[1] !== undefined) out.push(el("code", {}, [m[1]]));
+    else if (m[2] !== undefined) out.push(el("strong", {}, [m[2]]));
+    else if (m[3] !== undefined) out.push(el("em", {}, [m[3]]));
+    else if (MD_LINK.test(m[5])) out.push(el("a", { href: m[5], rel: "noopener noreferrer", target: "_blank" }, [m[4]]));
+    else out.push(m[0]);
+    last = re.lastIndex;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
+function renderMarkdown(src) {
+  const out = [];
+  const lines = String(src).replace(/\r\n?/g, "\n").split("\n");
+  let para = [], list = null, listTag = "", code = null;
+  const flush = () => { if (para.length) { out.push(el("p", {}, mdInline(para.join("\n")))); para = []; } };
+  for (const line of lines) {
+    if (code !== null) {
+      if (/^```/.test(line)) { out.push(el("pre", {}, [el("code", {}, [code.join("\n")])])); code = null; }
+      else code.push(line);
+      continue;
+    }
+    if (/^```/.test(line)) { flush(); list = null; code = []; continue; }
+    if (line.trim() === "") { flush(); list = null; continue; }
+    let m;
+    if ((m = /^(#{1,4})\s+(.*)$/.exec(line))) { flush(); list = null; out.push(el("h" + m[1].length, {}, mdInline(m[2]))); continue; }
+    if (/^(-{3,}|\*{3,})\s*$/.test(line)) { flush(); list = null; out.push(el("hr")); continue; }
+    if ((m = /^\s*([-*]|\d+\.)\s+(.*)$/.exec(line))) {
+      flush();
+      const tag = /\./.test(m[1]) ? "ol" : "ul";
+      if (!list || listTag !== tag) { list = el(tag, {}, []); listTag = tag; out.push(list); }
+      const task = /^\[( |x|X)\]\s+(.*)$/.exec(m[2]);
+      if (task) {
+        const box = el("input", { type: "checkbox", disabled: true });
+        box.checked = task[1] !== " ";
+        list.append(el("li", { cls: "task" }, [box, " "].concat(mdInline(task[2]))));
+      } else {
+        list.append(el("li", {}, mdInline(m[2])));
+      }
+      continue;
+    }
+    list = null;
+    para.push(line);
+  }
+  if (code !== null) out.push(el("pre", {}, [el("code", {}, [code.join("\n")])]));
+  flush();
+  return out;
+}
+// markdown:end
+
+// The Preview button of a text: shows the text formatted, or the editor again.
+function togglePreview(button, area, view) {
+  const on = button.getAttribute("aria-pressed") !== "true";
+  button.setAttribute("aria-pressed", String(on));
+  area.hidden = on;
+  view.hidden = !on;
+  if (on) { view.textContent = ""; view.append(...renderMarkdown(area.value)); }
+}
+
+function notesPanel(mn, a) {
+  const scope = agentScope(mn, a.id);
+  let loaded = false;
+  const say = el("small", { role: "status" }, ["Loading..."]);
+  const area = el("textarea", { "aria-label": "Notes of " + a.name, rows: "12", disabled: true }, []);
+  const view = el("div", { cls: "md", hidden: "", tabindex: "0", "aria-label": "Notes, shown as text" }, []);
+  const preview = el("button", { type: "button", "aria-pressed": "false", on: () => togglePreview(preview, area, view) }, ["Preview"]);
+  const tell = (text, bad) => { say.textContent = text; say.className = bad ? "bad" : ""; };
+  const saver = makeSaver(async (text) => {
+    tell("Saving...");
+    try {
+      const r = await call(mn, "PUT", "/notes/" + a.id, { text });
+      const when = r.saved ? new Date(r.saved * 1000).toLocaleTimeString() : clock();
+      tell(r.pushed === false ? "Saved at " + when + ", not pushed" : r.pushed ? "Saved and pushed at " + when : "Saved at " + when);
+    } catch (e) { tell("Not saved: " + e.message, true); }
+  });
+  area.addEventListener("input", () => {
+    if (!loaded) return;
+    saver.change(area.value);
+    tell("Unsaved changes");
+  });
+  (async () => {
+    try {
+      const r = await call(mn, "GET", "/notes/" + a.id);
+      area.value = r.text;
+      area.disabled = false;
+      loaded = true;
+      tell(r.saved ? "Last saved " + new Date(r.saved * 1000).toLocaleString() : "No notes saved yet");
+    } catch (e) { tell(e.message, true); }
+  })();
+  const node = panelNode(scope, "Notes of " + a.name, [preview], [say, area, view]);
+  return { node, stop: () => saver.flush() };
+}
+
+function consolePanel(mn, a) {
+  const scope = agentScope(mn, a.id);
+  const out = el("pre", { cls: "screen", tabindex: "0", "aria-label": "Console of " + a.name }, []);
+  const say = el("small", { role: "status" }, ["Reading the console..."]);
+  async function look() {
+    if (document.hidden) return;
+    try {
+      const s = await call(mn, "GET", "/agents/" + a.id + "/console");
+      out.textContent = s.screen;
+      say.textContent = "Read only. Updated " + clock() + ", every 2 seconds.";
+      say.className = "";
+    } catch (e) {
+      out.textContent = "";
+      say.textContent = e.message === "not running" ? "This agent is not running, so it has no console." : e.message;
+      say.className = e.message === "not running" ? "" : "bad";
+    }
+  }
+  const timer = setInterval(look, 2000);
+  look();
+  const node = panelNode(scope, "Console of " + a.name, [], [say, out]);
+  return { node, stop: () => { clearInterval(timer); return Promise.resolve(); } };
+}
+
+function filesPanel(mn, a) {
+  const scope = agentScope(mn, a.id);
+  let cwd = "", fileName = null, mtime = null;
+  const where = el("code", {}, ["/"]);
+  const say = el("small", { role: "status" }, []);
+  const tell = (text, bad) => { say.textContent = text; say.className = bad ? "bad" : ""; };
+  const up = el("button", { type: "button", on: () => showDir(parentOf(cwd)) }, ["Up"]);
+  const back = el("button", { type: "button", hidden: "", on: () => showDir(cwd) }, ["Back to folder"]);
+  const list = el("ul", { cls: "files" }, []);
+  const listing = el("div", {}, [list]);
+  const area = el("textarea", { "aria-label": "Text of the file", rows: "14", disabled: true }, []);
+  const view = el("div", { cls: "md", hidden: "", tabindex: "0", "aria-label": "File, shown formatted" }, []);
+  const preview = el("button", { type: "button", "aria-pressed": "false", hidden: "", on: () => togglePreview(preview, area, view) }, ["Preview"]);
+  const reload = el("button", { type: "button", on: () => openFile(fileName) }, ["Reload the file"]);
+  const keep = el("button", { type: "button", on: () => keepMine() }, ["Keep my text"]);
+  const conflict = el("div", { cls: "note bad", hidden: "", role: "alert" },
+    ["The file changed on disk. Reload it to see the new text, or keep your text and save it over the change. ", reload, " ", keep]);
+  const editor = el("div", { cls: "editor" }, [conflict, area, view]);
+  editor.hidden = true;
+  const filesUrl = (path) => "/agents/" + a.id + "/files?path=" + encodeURIComponent(path);
+  const fileSaver = makeSaver(async (v) => {
+    tell("Saving...");
+    try {
+      const r = await call(mn, "PUT", filesUrl(v.path), { text: v.text, mtime });
+      if (v.path === fileName) mtime = r.mtime;
+      conflict.hidden = true;
+      tell("Saved at " + clock());
+    } catch (e) {
+      if (e.status === 409) { conflict.hidden = false; tell("Not saved: the file changed on disk.", true); }
+      else tell("Not saved: " + e.message, true);
+    }
+  });
+  area.addEventListener("input", () => {
+    if (!fileName) return;
+    fileSaver.change({ path: fileName, text: area.value });
+    tell("Unsaved changes");
+  });
+  function parentOf(p) { const i = p.lastIndexOf("/"); return i < 0 ? "" : p.slice(0, i); }
+  function joinPath(p, n) { return p ? p + "/" + n : n; }
+  async function closeEditor() {
+    await fileSaver.flush();
+    fileName = null; mtime = null;
+    editor.hidden = true; conflict.hidden = true;
+    area.disabled = true; area.hidden = false; view.hidden = true;
+    preview.hidden = true; preview.setAttribute("aria-pressed", "false");
+    back.hidden = true; listing.hidden = false; up.hidden = false;
+  }
+  async function showDir(path) {
+    await closeEditor();
+    cwd = path;
+    where.textContent = "/" + path;
+    up.disabled = !path;
+    list.textContent = "";
+    list.append(el("li", { cls: "dim" }, ["Loading..."]));
+    try {
+      const r = await call(mn, "GET", filesUrl(path));
+      if (r.kind !== "dir") throw new Error("not a folder");
+      list.textContent = "";
+      if (!r.entries.length) list.append(el("li", { cls: "dim" }, ["This folder is empty."]));
+      for (const e of r.entries) {
+        const target = joinPath(path, e.name);
+        const label = e.kind === "dir" ? "folder" : e.kind === "link" ? "link" : e.size + " bytes";
+        list.append(el("li", {}, [
+          el("button", { type: "button", on: () => (e.kind === "dir" ? showDir(target) : openFile(target)) }, [e.name]),
+          el("small", {}, [label]),
+        ]));
+      }
+      tell("");
+    } catch (e) {
+      list.textContent = "";
+      tell(e.message, true);
+    }
+  }
+  async function openFile(path) {
+    await closeEditor();
+    tell("Opening...");
+    try {
+      const r = await call(mn, "GET", filesUrl(path));
+      if (r.kind === "dir") return showDir(path);
+      fileName = path; mtime = r.mtime;
+      area.value = r.text;
+      area.disabled = false;
+      listing.hidden = true; up.hidden = true; editor.hidden = false; back.hidden = false;
+      preview.hidden = !/\.md$/i.test(path);
+      where.textContent = "/" + path;
+      tell("Changes save by themselves, 1.5 seconds after you stop typing.");
+    } catch (e) { tell(e.message, true); }
+  }
+  async function keepMine() {
+    try {
+      const r = await call(mn, "GET", filesUrl(fileName));
+      mtime = r.mtime;
+      conflict.hidden = true;
+      tell("Your text is kept. Save writes it over the changed file.");
+    } catch (e) { tell(e.message, true); }
+  }
+  showDir("");
+  const node = panelNode(scope, "Files of " + a.name, [up, back, preview], [el("div", { cls: "row" }, [where, say]), listing, editor]);
+  return { node, stop: () => fileSaver.flush() };
+}
+
+function terminalPanel(mn) {
+  const scope = machineScope(mn);
+  let tid = null;
+  const say = el("small", { role: "status" }, ["Loading..."]);
+  const tell = (text, bad) => { say.textContent = text; say.className = bad ? "bad" : ""; };
+  const out = el("pre", { cls: "screen", tabindex: "0", "aria-label": "Terminal screen of " + mn }, []);
+  const picks = el("div", { cls: "row", role: "group", "aria-label": "Open terminals" }, []);
+  const text = el("input", { type: "text", "aria-label": "Text to type", autocomplete: "off", spellcheck: "false" }, []);
+  const typeBtn = el("button", { cls: "main", type: "button", on: () => sendText() }, ["Type text"]);
+  const keys = el("div", { cls: "row", role: "group", "aria-label": "Keys" },
+    TERM_KEYS.map(([k, label]) => el("button", { type: "button", on: () => press(k) }, [label])));
+  const closeBtn = el("button", { cls: "stop", type: "button", on: () => closeTerm() }, ["Close this terminal"]);
+  const openBtn = el("button", { type: "button", on: () => openNew() }, ["Open a terminal"]);
+  function setEnabled(on) {
+    for (const c of [text, typeBtn, closeBtn, ...keys.querySelectorAll("button")]) c.disabled = !on;
+  }
+  function paint(list) {
+    picks.textContent = "";
+    picks.append(openBtn);
+    for (const t of list) picks.append(el("button", { type: "button", "aria-pressed": String(t === tid), on: () => show(t) }, [t]));
+  }
+  async function refresh() {
+    try {
+      const r = await call(mn, "GET", "/terminal");
+      paint(r.terminals);
+      if (tid && !r.terminals.includes(tid)) show(null);
+    } catch (e) { tell(e.message, true); }
+  }
+  function show(t) {
+    tid = t;
+    out.textContent = "";
+    setEnabled(!!t);
+    tell(t ? "Showing " + t + ". Refreshes every second." : "No terminal is open here. Open one to start.");
+    refresh();
+    poll();
+  }
+  async function poll() {
+    if (!tid || document.hidden) return;
+    const t = tid;
+    try {
+      const s = await call(mn, "GET", "/terminal/" + t);
+      if (t === tid) out.textContent = s.screen;
+    } catch (e) {
+      if (t === tid) { out.textContent = ""; show(null); tell(e.message, true); }
+    }
+  }
+  async function openNew() {
+    try {
+      const r = await call(mn, "POST", "/terminal");
+      show(r.tid);
+    } catch (e) { tell(e.message, true); }
+  }
+  async function press(k) {
+    if (!tid) return;
+    try { await call(mn, "POST", "/terminal/" + tid, { key: k }); poll(); }
+    catch (e) { tell(e.message, true); }
+  }
+  async function sendText() {
+    if (!tid || !text.value) return;
+    const v = text.value;
+    try { await call(mn, "POST", "/terminal/" + tid, { text: v }); text.value = ""; poll(); }
+    catch (e) { tell(e.message, true); }
+  }
+  async function closeTerm() {
+    if (!tid || !window.confirm("Close this terminal? Anything running in it stops.")) return;
+    const t = tid;
+    try { await call(mn, "DELETE", "/terminal/" + t); show(null); }
+    catch (e) { tell(e.message, true); }
+  }
+  const timer = setInterval(poll, 1000);
+  show(null);
+  const node = panelNode(scope, "Terminal of " + mn, [], [picks, out, el("div", { cls: "row" }, [text, typeBtn]), keys, el("div", { cls: "row" }, [closeBtn, say])]);
+  return { node, stop: () => { clearInterval(timer); return Promise.resolve(); } };
+}
+
+function telemetryPanel(mn) {
+  const scope = machineScope(mn);
+  const say = el("p", { role: "status", cls: "dim" }, ["Loading..."]);
+  const inputs = {};
+  const fields = TEL_FIELDS.map(([name, label]) => {
+    let input;
+    if (name === "traces_to") {
+      input = el("select", { name }, [
+        el("option", { value: "victoria" }, ["VictoriaTraces"]),
+        el("option", { value: "langfuse" }, ["Langfuse"]),
+        el("option", { value: "" }, ["Nowhere (logs only)"]),
+      ]);
+    } else {
+      input = el("input", { name, type: /password/.test(name) ? "password" : "text", autocomplete: "off", spellcheck: "false" }, []);
+    }
+    inputs[name] = input;
+    return el("label", {}, [label, input]);
+  });
+  const form = el("form", { cls: "editor two" }, [
+    ...fields,
+    el("div", { cls: "row" }, [
+      el("button", { cls: "main", type: "submit" }, ["Save telemetry"]),
+      el("button", { cls: "stop", type: "button", on: () => remove() }, ["Remove telemetry"]),
+    ]),
+  ]);
+  function paint(st) {
+    say.textContent = st.set_up
+      ? "Telemetry is set up. Receivers: " + (st.receivers.join(", ") || "none") + ". Passwords are not shown again: type them to change them."
+      : "Telemetry is not set up on this machine.";
+    say.className = "";
+  }
+  async function refresh() {
+    try { paint(await call(mn, "GET", "/telemetry")); }
+    catch (e) { say.textContent = e.message; say.className = "bad"; }
+  }
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const body = {};
+    for (const [name] of TEL_FIELDS) body[name] = inputs[name].value.trim();
+    try {
+      paint(await call(mn, "PUT", "/telemetry", body));
+      for (const [name] of TEL_FIELDS) if (/password|secret/.test(name)) inputs[name].value = "";
+    } catch (e) { say.textContent = e.message; say.className = "bad"; }
+  });
+  async function remove() {
+    if (!window.confirm("Remove the telemetry set-up from " + mn + "?")) return;
+    try { paint(await call(mn, "DELETE", "/telemetry")); }
+    catch (e) { say.textContent = e.message; say.className = "bad"; }
+  }
+  refresh();
+  const node = panelNode(scope, "Telemetry of " + mn, [], [say, form]);
+  return { node, stop: () => Promise.resolve() };
+}
+
+const COST_KINDS = [["input", "input"], ["cache_write_5m", "cache write 5 min"], ["cache_write_1h", "cache write 1 h"],
+  ["cache_read", "cache read"], ["output", "output"]];
+const COST_PERIODS = [["today", "Today"], ["7", "7 days"], ["30", "30 days"]];
+let costPeriod = "7";
+let costSeq = 0;          // an answer of an older load is ignored
+let costAt = 0;           // when the costs were last asked for
+let costRows = [];        // one per added machine: {name, status, text, data, parts}; parts only when counted
+
+function usdText(v) {
+  if (v === null || v === undefined) return "no price";
+  if (v > 0 && v < 0.01) return "under $0.01";
+  return "$" + v.toFixed(2);
+}
+
+function bounds(p) {
+  const now = new Date();
+  const since = p === "today" ? new Date(now.getFullYear(), now.getMonth(), now.getDate()) : new Date(now.getTime() - Number(p) * 86400000);
+  return { since: Math.floor(since.getTime() / 1000), until: Math.floor(now.getTime() / 1000) };
+}
+
+function taskName(t) { return /^[0-9]+$/.test(t) ? "#" + t : t; }
+function tokenSum(t) { return COST_KINDS.reduce((n, [k]) => n + t[k], 0); }
+function chars(n) { return n === null ? "none" : String(n); }
+function costScope(mn) { return "cost:" + mn; }
+function costRowOf(mn) { return costRows.find((r) => r.name === mn) || null; }
+
+// Reads every added machine's costs for the chosen period. An off machine, one that does not answer and an older one
+// are not asked for costs; each is shown as such and left out of the total. A machine without the route says so.
+async function loadCosts() {
+  const mine = ++costSeq;
+  const b = bounds(costPeriod);
+  costAt = Date.now();
+  $("cost-total").textContent = "Loading costs...";
+  const rows = await Promise.all(views.map(async (v) => {
+    if (!v.on) return { name: v.name, status: "off", text: "off", parts: null };
+    if (!v.state) return { name: v.name, status: "no answer", text: v.error && /does not answer/.test(v.error) ? v.error : "does not answer" + (v.error ? ": " + v.error : ""), parts: null };
+    if (v.older) return { name: v.name, status: "older", text: "older version", parts: null };
+    try {
+      const data = await call(v.name, "GET", "/costs?since=" + b.since + "&until=" + b.until);
+      let leaks = null;   // a machine with no analyst yet, or one that fails here, is left out of that table only
+      try { leaks = await call(v.name, "GET", "/analyst?since=" + b.since + "&until=" + b.until); } catch (e) { leaks = null; }
+      return { name: v.name, status: "ok", text: "", data, parts: costParts(data), leaks };
+    } catch (e) {
+      if (e.status === 404) return { name: v.name, status: "missing", text: NOT_IN, parts: null };
+      return { name: v.name, status: "no answer", text: e.message, parts: null };
+    }
+  }));
+  if (mine !== costSeq) return;
+  costRows = rows;
+  renderCosts();
+}
+
+function totalText(t) {
+  const period = (COST_PERIODS.find(([v]) => v === costPeriod) || [, costPeriod])[1];
+  if (!t.counted) return "No machine answers with its costs for " + period.toLowerCase() + ", so there is no total.";
+  let s = "Total for " + period.toLowerCase() + ", " + t.counted + " of " + t.of + " " + (t.of === 1 ? "machine" : "machines") + ": " +
+    usdText(t.usd) + " (main " + usdText(t.main) + ", subagents " + usdText(t.subagents) + "). Estimate at API prices.";
+  if (t.unpriced.length) s += " Not every model has a price on " + t.unpriced.join(", ") + ": that part is not counted.";
+  return s;
+}
+
+function costRow(r) {
+  const scope = costScope(r.name);
+  const open = live.get(scope);
+  const money = r.parts
+    ? "main " + usdText(r.parts.main) + ", subagents " + usdText(r.parts.subagents) + ", total " + usdText(r.parts.usd)
+    : r.text + ", left out of the total";
+  const kids = [
+    el("strong", {}, [r.name]),
+    el("span", { cls: "grow" + (r.parts ? "" : " dim") }, [money]),
+    el("button", { type: "button", "data-scope": scope, "data-kind": "tasks", "aria-expanded": "false", "data-fid": scope + ":tasks",
+      disabled: !r.parts, on: () => toggle(scope, "tasks", () => tasksPanel(r.name)) }, ["Tasks"]),
+  ];
+  const slot = el("div", { cls: "slot", "data-slot": scope }, []);
+  if (open) slot.append(open.node);
+  kids.push(slot);
+  return el("li", { cls: "costrow" }, kids);
+}
+
+function renderLeaks() {
+  const t = sumLeaks(costRows);
+  const box = $("leak-rows");
+  box.textContent = "";
+  if (!t.counted) { box.append(el("p", { cls: "empty" }, ["No machine answers with its findings."])); return; }
+  const line = (name, count, tokens, head) => el("tr", {}, [el(head ? "th" : "td", head ? { scope: "row" } : {}, [name]),
+    ...LEAK_RULES.map(([r]) => el("td", {}, [String(count[r])])), el("td", {}, [tokens.toLocaleString()])]);
+  box.append(el("p", { cls: "dim" }, ["Found by each machine's dashboard, by fixed rules; " + t.counted + " of " + t.of +
+    (t.of === 1 ? " machine answers." : " machines answer.") + " The findings themselves are in a machine's Costs panel."]));
+  box.append(el("div", { cls: "wrap", role: "region", "aria-labelledby": "leaks-h", tabindex: "0" }, [
+    el("table", {}, [
+      el("thead", {}, [el("tr", {}, [el("th", {}, ["Machine"]), ...LEAK_RULES.map(([, label]) => el("th", {}, [label])),
+        el("th", {}, ["Tokens lost"])])]),
+      el("tbody", {}, [...t.machines.map((m) => line(m.name, m.count, m.tokens, false)), line("All", t.count, t.tokens, true)]),
+    ]),
+  ]));
+}
+
+function renderCosts() {
+  renderLeaks();
+  const t = sumCosts(costRows);
+  keepFocus(() => {
+    const box = $("cost-rows");
+    box.textContent = "";
+    if (!costRows.length) { box.append(el("p", { cls: "empty" }, ["No machines added yet."])); return; }
+    box.append(el("ul", { cls: "plain" }, costRows.map(costRow)));
+  });
+  $("cost-total").textContent = totalText(t);
+  for (const [scope, cur] of live) if (scope.indexOf("cost:") === 0 && cur.update) cur.update();
+  syncTools();
+}
+
+function buildPeriods() {
+  const box = $("cost-periods");
+  box.textContent = "";
+  for (const [v, label] of COST_PERIODS) {
+    box.append(el("button", { type: "button", "data-fid": "period:" + v, "aria-pressed": String(v === costPeriod), on: () => choosePeriod(v) }, [label]));
+  }
+}
+
+function choosePeriod(v) {
+  costPeriod = v;
+  for (const b of $("cost-periods").querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.fid === "period:" + v));
+  loadCosts();
+}
+
+// One machine's tasks: the money by task, and the calls of the subagents inside a task (tokens, brief and report characters).
+function tasksPanel(mn) {
+  const scope = costScope(mn);
+  let openTask = null;   // the task whose calls are listed
+  const out = el("div", { cls: "editor" }, []);
+  function pickTask(t) { openTask = openTask === t ? null : t; paint(); }
+  function paint() {
+    keepFocus(() => {
+      out.textContent = "";
+      const r = costRowOf(mn);
+      if (!r || !r.data) { out.append(el("p", { cls: "dim" }, [r ? r.text : "No costs read."])); return; }
+      const data = r.data;
+      if (!data.tasks.length) { out.append(el("p", { cls: "dim" }, ["Nothing spent in this period."])); return; }
+      const t = data.total;
+      const money = t.usd === null ? "not every model has a price" : usdText(t.usd) + (t.usd_partial ? " + unpriced" : "") + " (estimate at API prices)";
+      out.append(el("p", {}, ["Tokens: " + COST_KINDS.map(([k, label]) => t[k].toLocaleString() + " " + label).join(", ") +
+        ". Money: " + money + "."]));
+      if (data.unpriced.length) out.append(el("p", { cls: "note" }, ["no price for: " + data.unpriced.join(", ")]));
+      const rows = data.tasks.map((k) => el("tr", {}, [
+        el("td", {}, [el("button", { type: "button", "data-fid": "task:" + mn + ":" + k.task, "aria-expanded": String(k.task === openTask),
+          on: () => pickTask(k.task) }, [taskName(k.task)])]),
+        el("td", {}, [usdText(k.main.usd)]),
+        el("td", {}, [usdText(k.subagents.usd)]),
+        el("td", {}, [String(k.calls.length)]),
+      ]));
+      out.append(el("div", { cls: "wrap", role: "region", "aria-label": "Costs by task of " + mn, tabindex: "0" }, [
+        el("table", {}, [
+          el("thead", {}, [el("tr", {}, [el("th", {}, ["Task"]), el("th", {}, ["Main, USD"]), el("th", {}, ["Subagents, USD"]),
+            el("th", {}, ["Subagent calls"])])]),
+          el("tbody", {}, rows),
+        ]),
+      ]));
+      const task = data.tasks.find((k) => k.task === openTask);
+      if (!task) return;
+      out.append(el("h3", {}, ["Calls of " + taskName(task.task)]));
+      if (!task.calls.length) { out.append(el("p", { cls: "dim" }, ["No subagent calls in this task."])); return; }
+      const calls = task.calls.map((c) => el("tr", {}, [
+        el("td", {}, [c.type || "unknown"]),
+        el("td", {}, [tokenSum(c.tokens).toLocaleString()]),
+        el("td", {}, [usdText(c.tokens.usd)]),
+        el("td", {}, [chars(c.brief_chars)]),
+        el("td", {}, [chars(c.report_chars)]),
+      ]));
+      out.append(el("div", { cls: "wrap", role: "region", "aria-label": "Subagent calls of " + mn, tabindex: "0" }, [
+        el("table", {}, [
+          el("thead", {}, [el("tr", {}, [el("th", {}, ["Type"]), el("th", {}, ["Tokens"]), el("th", {}, ["USD"]),
+            el("th", {}, ["Brief, chars"]), el("th", {}, ["Report, chars"])])]),
+          el("tbody", {}, calls),
+        ]),
+      ]));
+    });
+  }
+  paint();
+  const node = panelNode(scope, "Tasks of " + mn, [], [out]);
+  return { node, stop: () => Promise.resolve(), update: paint };
+}
+
+// Updates: each machine's version, one machine or the outdated ones at once. The page calls the machine's routes
+// through the centre's pass-through; the agents keep running.
+let versions = {};        // machine name -> its /version answer; {missing: true} when it has no such route
+let versionsAt = 0;
+let shape = "";        // the machines as the page last saw them: a change asks the versions and costs again
+let runOn = false;        // an update run is going
+let runList = [];         // [{name, phase, text}] of the run shown in the Update section
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function loadVersions() {
+  versionsAt = Date.now();
+  if (parked("update")) return;
+  const on = views.filter((v) => v.on && v.state);
+  const got = await Promise.all(on.map(async (v) => {
+    try { return [v.name, await call(v.name, "GET", "/version")]; }
+    catch (e) { return [v.name, e.status === 404 ? { missing: true } : { unreachable: e.message }]; }
+  }));
+  const next = {};
+  for (const [name, ver] of got) next[name] = ver;
+  versions = next;
+  render(false);
+  paintTop();
+}
+
+function outdatedNames() {
+  return views.filter((v) => v.on && v.state && isOutdated(versions[v.name])).map((v) => v.name);
+}
+
+function paintTop() {
+  const list = views.filter((v) => v.on && v.state).map((v) => ({ name: v.name, ver: answered(versions[v.name]) ? versions[v.name] : null }));
+  const s = outdatedSummary(list);
+  let text = "";
+  if (s.m) text = s.n + " of " + s.m + " machines are outdated" + (s.unknown ? ", " + s.unknown + " did not tell their version" : "");
+  else if (list.length) text = "No machine tells its version yet.";
+  $("outdated").textContent = text;
+  $("update-all").disabled = runOn || s.n === 0;
+}
+
+function finish(item, phase, text) { item.phase = phase; item.text = text; paintRun(); }
+
+// One machine: start its update (POST), then read its state (GET) until it is done or failed. A 409 means an update
+// already runs there, so the page waits for that one.
+async function updateMachine(item) {
+  const mn = item.name;
+  item.phase = "running"; item.text = "starting";
+  paintRun();
+  try {
+    await call(mn, "POST", "/update");
+  } catch (e) {
+    if (e.status !== 409) { finish(item, "failed", e.status === 404 ? NOT_IN : e.message); return; }
+  }
+  for (let i = 0; i < 600; i++) {   // 600 times 2 s: 20 minutes
+    await sleep(2000);
+    let st;
+    try { st = await call(mn, "GET", "/update"); }
+    catch (e) { finish(item, "failed", e.message); return; }
+    if (st.state === "running") { item.text = "running" + (st.from ? " from " + st.from : ""); paintRun(); continue; }
+    if (st.state === "done") { finish(item, "done", "from " + (st.from || "?") + " to " + (st.to || "?")); return; }
+    if (st.state === "failed") { finish(item, "failed", st.detail || "no reason given"); return; }
+    finish(item, "failed", "the machine reports no update");
+    return;
+  }
+  finish(item, "failed", "still running after 20 minutes: look at the machine");
+}
+
+async function runUpdates(names) {
+  if (runOn || !names.length) return;
+  runOn = true;
+  notice("");
+  runList = names.map((n) => ({ name: n, phase: "waiting", text: "" }));
+  paintRun();
+  paintTop();
+  for (const item of runList) await updateMachine(item);   // one machine failing does not stop the others
+  runOn = false;
+  paintTop();
+  await loadVersions();   // the kit versions now, not after the 60 s that load() waits for
+  await load(true);
+}
+
+function paintRun() {
+  $("update-run").hidden = !runList.length;
+  keepFocus(() => {
+    const box = $("update-list");
+    box.textContent = "";
+    for (const it of runList) {
+      box.append(el("li", { cls: it.phase === "failed" ? "bad" : "" }, [
+        el("strong", {}, [it.name]), " ", el("span", {}, [it.phase]), " ", el("small", {}, [it.text]),
+      ]));
+    }
+  });
+  render(false);
+  paintTop();
+}
+
+function versionLine(v) {
+  const mn = v.name;
+  const ver = versions[mn];
+  const running = runList.some((x) => x.name === mn && x.phase === "running");
+  let mark;
+  if (!ver) mark = el("span", { cls: "dim" }, ["checking for a newer version..."]);
+  else if (ver.missing) mark = el("span", { cls: "dim" }, [NOT_IN]);
+  else if (ver.unreachable) mark = el("span", { cls: "bad" }, ["the check does not answer: " + ver.unreachable]);
+  else if (isOutdated(ver)) mark = el("span", { cls: "chip hot" }, ["update to " + txt(ver.latest)]);
+  else if (ver.latest) mark = el("span", { cls: "dim" }, ["up to date"]);
+  else mark = el("span", { cls: "dim" }, [ver.error ? "no newer version known: " + ver.error : "no newer version known"]);
+  const installed = ver && ver.installed ? ver.installed : txt(v.version);
+  const button = el("button", { type: "button", "data-fid": "update:" + mn, disabled: running || runOn || !isOutdated(ver),
+    on: () => runUpdates([mn]) }, [running ? "Updating..." : "Update"]);
+  return el("div", { cls: "kit" }, [el("span", {}, ["kit " + installed]), ...(parked("update") ? [] : [mark, button])]);
+}
+
+const AGENT_PANELS = { notes: notesPanel, console: consolePanel, files: filesPanel };
+const MACHINE_PANELS = { terminal: terminalPanel, telemetry: telemetryPanel };
+
+function toolButton(mn, a, kind, label) {
+  const scope = agentScope(mn, a.id);
+  return el("button", { type: "button", "data-scope": scope, "data-kind": kind, "data-fid": "tool:" + scope + ":" + kind,
+    "aria-expanded": "false", on: () => toggle(scope, kind, () => AGENT_PANELS[kind](mn, a)) }, [label]);
+}
+
+function machineToolButton(mn, kind, label) {
+  const scope = machineScope(mn);
+  return el("button", { type: "button", "data-scope": scope, "data-kind": kind, "data-fid": "tool:" + scope + ":" + kind,
+    "aria-expanded": "false", on: () => toggle(scope, kind, () => MACHINE_PANELS[kind](mn)) }, [label]);
+}
+
+// How long ago a record was, in words for the eye.
+function agoText(sec) {
+  if (sec < 60) return Math.round(sec) + " s ago";
+  if (sec < 3600) return Math.round(sec / 60) + " min ago";
+  if (sec < 86400) return (sec / 3600).toFixed(1) + " h ago";
+  return Math.round(sec / 86400) + " days ago";
+}
+
+// One agent's record time from the machine's arrivals answer; null when the answer has none for it.
+function arrivalOf(mn, id) {
+  const r = arrivals[mn];
+  return r && !r.error && r.agents && r.agents[id] ? r.agents[id] : null;
+}
+
+// The rows of the agent's card about its records: the time of the last one and a late mark.
+function arrivalRows(mn, a) {
+  const r = arrivals[mn];
+  if (!r) return [];
+  if (r.error) return [el("dt", {}, ["Last record"]), el("dd", { cls: "dim" }, [r.error])];
+  const arr = arrivalOf(mn, a.id);
+  if (!arr) return [];
+  const text = arr.last === null || arr.last === undefined ? "no record yet" : agoText(arr.last);
+  const kids = [text];
+  if (arr.late) kids.push(" ", el("span", { cls: "chip warn" }, ["late"]));
+  return [el("dt", {}, ["Last record"]), el("dd", {}, kids)];
+}
+
+// The links to the viewers' base addresses. They open the base only: the agent is not searched for there.
+function agentLinks() {
+  const out = [];
+  if (isLink(settings.grafana)) out.push(el("a", { href: settings.grafana, target: "_blank", rel: "noopener noreferrer" }, ["Logs in Grafana"]));
+  if (isLink(settings.langfuse)) out.push(el("a", { href: settings.langfuse, target: "_blank", rel: "noopener noreferrer" }, ["Traces in Langfuse"]));
+  return out;
+}
+
+// A machine's telemetry verdicts: whether data arrives, and a Check button with each receiver's answer.
+function arrivesBlock(mn) {
+  const head = el("h3", {}, ["Data arrives"]);
+  const kids = [head];
+  const r = arrivals[mn];
+  if (!r) kids.push(el("p", { cls: "dim" }, ["Checking..."]));
+  else if (r.error) kids.push(el("p", { cls: "note" }, [r.error]));
+  else {
+    if (r.reason) kids.push(el("p", { cls: "note" }, [r.reason]));
+    else if (!Object.keys(r.agents || {}).length) kids.push(el("p", { cls: "dim" }, ["No agent to watch yet."]));
+    else kids.push(el("p", { cls: "dim" }, ["Each agent shows the time of its last record."]));
+  }
+  const res = checks[mn];
+  kids.push(el("div", { cls: "row" }, [el("button", { type: "button", "data-fid": "check:" + mn, on: () => checkTelemetry(mn) }, ["Check"])]));
+  if (res && res.error) kids.push(el("p", { cls: "note bad" }, [res.error]));
+  else if (res && res.receivers) {
+    const items = Object.keys(res.receivers).map((name) => {
+      const v = res.receivers[name] || {};
+      return el("li", {}, [el("strong", {}, [name]), " ", el("span", { cls: "chip" }, [txt(v.key)]), " ", el("small", {}, [txt(v.detail)])]);
+    });
+    kids.push(items.length ? el("ul", { cls: "plain", "aria-label": "Receivers of " + mn }, items) : el("p", { cls: "dim" }, ["No receiver is set up."]));
+  }
+  return el("div", { cls: "editor" }, kids);
+}
+
+async function loadArrives() {
+  const on = views.filter((v) => v.on && v.state);
+  const got = await Promise.all(on.map(async (v) => {
+    try { return [v.name, await call(v.name, "GET", "/telemetry/arrives")]; }
+    catch (e) { return [v.name, { error: e.message }]; }
+  }));
+  const next = {};
+  for (const [name, ans] of got) next[name] = ans;
+  arrivals = next;
+  render(false);
+}
+
+async function checkTelemetry(mn) {
+  notice("");
+  try { checks = Object.assign({}, checks, { [mn]: await call(mn, "POST", "/telemetry/check") }); }
+  catch (e) { checks = Object.assign({}, checks, { [mn]: { error: e.message } }); }
+  render(true);
+}
+
+function agentCard(mn, a) {
+  const status = el("span", { cls: a.running ? "on" : "dim" }, [el("span", { cls: "dot" }), a.running ? "running" : "stopped"]);
+  const chips = [];
+  if (a.answers === false) chips.push(el("span", { cls: "chip hot" }, ["does not answer"]));
+  if (a.restart_needed) chips.push(el("span", { cls: "chip warn" }, ["settings changed: restart to apply"]));
+  if (a.kit === "restart") chips.push(el("span", { cls: "chip warn" }, ["restart to apply"]));
+  if (a.last_event) chips.push(el("span", { cls: "chip" }, [a.last_event.event + " " + a.last_event.time]));
+  const fresh = el("input", { type: "checkbox" });
+  fresh.checked = true;
+  const actions = el("div", { cls: "row" }, [
+    el("button", { cls: "main", type: "button", "data-fid": "agent:" + mn + ":" + a.id + ":start", on: () => act(mn, a, "start", fresh.checked), disabled: a.running }, ["Start"]),
+    el("button", { type: "button", "data-fid": "agent:" + mn + ":" + a.id + ":restart", on: () => act(mn, a, "restart", fresh.checked), disabled: !a.running }, ["Restart"]),
+    el("button", { cls: "stop", type: "button", "data-fid": "agent:" + mn + ":" + a.id + ":stop", on: () => act(mn, a, "stop"), disabled: !a.running }, ["Stop"]),
+    parked("agent-form") ? null
+      : el("button", { type: "button", "data-fid": "agent:" + mn + ":" + a.id + ":edit", on: () => openForm(mn, a) }, ["Edit"]),
+    el("label", { cls: "check" }, [fresh, " new conversation"]),
+  ]);
+  const tools = el("div", { cls: "row", role: "group", "aria-label": "Tools of " + a.name },
+    [toolButton(mn, a, "notes", "Notes"), toolButton(mn, a, "console", "Console"), toolButton(mn, a, "files", "Files")]);
+  const slot = el("div", { cls: "slot", "data-slot": agentScope(mn, a.id) }, []);
+  const open = live.get(agentScope(mn, a.id));
+  if (open) slot.append(open.node);
+  return el("article", { cls: "card", "aria-label": a.name }, [
+    el("div", { cls: "top" }, [el("h3", { cls: "grow" }, [txt(a.name || a.id)]), status]),
+    el("dl", {}, [
+      el("dt", {}, ["Folder"]), el("dd", {}, [el("code", {}, [txt(a.dir)])]),
+      el("dt", {}, ["Role"]), el("dd", {}, [a.role === undefined ? NOT_IN : txt(a.role) + " / " + txt(a.mode)]),
+      el("dt", {}, ["Model"]), el("dd", {}, [a.model === undefined ? NOT_IN : a.model + " / " + txt(a.effort) + "  (subagents " + txt(a.subm) + " / " + txt(a.sube) + ")"]),
+      el("dt", {}, ["Window"]), el("dd", {}, [txt(a.window)]),
+      el("dt", {}, ["Add-ons"]), el("dd", {}, [txt(a.addons)]),
+      el("dt", {}, ["Launch"]), el("dd", {}, [txt(a.launch)]),
+      el("dt", {}, ["Context"]), el("dd", {}, [a.context === undefined ? NOT_IN : contextText(a.context)]),
+      ...arrivalRows(mn, a),
+    ]),
+    el("div", { cls: "row" }, chips),
+    agentLinks().length ? el("div", { cls: "row", role: "group", "aria-label": "Links of " + a.name }, agentLinks()) : "",
+    a.restart_needed ? el("p", { cls: "note" }, ["Started with other settings. The running agent keeps them until a restart."]) : "",
+    actions,
+    tools,
+    slot,
+  ]);
+}
+
+async function act(mn, a, action, fresh) {
+  notice("");
+  try {
+    const body = action === "stop" ? undefined : { fresh: !!fresh };
+    await call(mn, "POST", "/agents/" + a.id + "/" + action, body);
+    await load(true);
+  } catch (e) {
+    notice(mn + " / " + a.name + ": " + e.message);
+  }
+}
+
+function agentsBlock(mn, s) {
+  const row = el("div", { cls: "row" }, [
+    el("h3", { cls: "grow" }, ["Agents"]),
+    parked("agent-form") ? null
+      : el("button", { cls: "main", type: "button", "data-fid": "new:" + mn, on: () => openForm(mn, null) }, ["New agent"]),
+  ]);
+  if (!Array.isArray(s.agents)) return el("div", { cls: "editor" }, [row, el("p", { cls: "dim" }, [NOT_IN])]);
+  const cards = s.agents.length
+    ? el("div", { cls: "cards" }, s.agents.map((a) => agentCard(mn, a)))
+    : el("p", { cls: "empty" }, ["No agents on this machine yet." + (parked("agent-form") ? "" : " Make one with New agent.")]);
+  return el("div", { cls: "editor" }, [row, cards]);
+}
+
+async function closeSession(mn, s) {
+  if (!window.confirm("Close the tmux session " + s.name + " on " + mn + "? Work in it that is not saved is lost.")) return;
+  notice("");
+  try {
+    await call(mn, "DELETE", "/tmux/" + encodeURIComponent(s.name));
+    await load(true);
+  } catch (e) { notice(mn + ": " + e.message); }
+}
+
+function tmuxBlock(mn, s) {
+  const head = el("h3", {}, ["tmux sessions"]);
+  if (!Array.isArray(s.tmux)) return el("div", { cls: "editor" }, [head, el("p", { cls: "dim" }, [NOT_IN])]);
+  if (!s.tmux.length) return el("div", { cls: "editor" }, [head, el("p", { cls: "dim" }, ["No tmux sessions."])]);
+  const agents = Array.isArray(s.agents) ? s.agents : [];
+  const rows = s.tmux.map((t) => {
+    const who = agents.find((a) => a.id === t.agent);
+    const marks = (t.marks || []).slice();
+    if (who && who.answers === false) marks.push("does not answer");
+    return el("tr", {}, [
+      el("td", {}, [el("code", {}, [txt(t.name)])]),
+      el("td", {}, [who ? txt(who.name) : txt(t.agent)]),
+      el("td", {}, [marks.join(", ") || "-"]),
+      el("td", {}, [txt(t.panes)]),
+      el("td", {}, [el("button", { cls: "stop", type: "button", on: () => closeSession(mn, t) }, ["Close"])]),
+    ]);
+  });
+  return el("div", { cls: "editor" }, [head, el("div", { cls: "wrap", role: "region", "aria-label": "tmux sessions of " + mn, tabindex: "0" }, [
+    el("table", {}, [
+      el("thead", {}, [el("tr", {}, [el("th", {}, ["Session"]), el("th", {}, ["Agent"]), el("th", {}, ["Marks"]),
+        el("th", {}, ["Panes"]), el("th", {}, [""])])]),
+      el("tbody", {}, rows),
+    ]),
+  ])]);
+}
+
+// A machine's state as the centre reports it: one word for the eye
+function statusOf(v) {
+  if (!v.on) return { text: "off", cls: "dim" };
+  if (v.state) return { text: v.older ? "older version" : "answers", cls: "on" };
+  if (v.version !== null && v.version !== undefined) {
+    if (v.older && /no such path/.test(v.error || "")) return { text: "older version", cls: "bad" };
+    return { text: "key refused", cls: "bad" };
+  }
+  return { text: "does not answer", cls: "bad" };
+}
+
+async function changeMachine(mn, body) {
+  notice("");
+  try {
+    await call(null, "PUT", "/machines/" + encodeURIComponent(mn), body);
+    await load(true);
+  } catch (e) { notice(mn + ": " + e.message); }
+}
+
+function keyForm(v) {
+  const mn = v.name;
+  const input = el("input", { type: "password", "aria-label": "Key of " + mn, autocomplete: "off", spellcheck: "false" }, []);
+  const form = el("form", { cls: "row" }, [
+    el("label", { cls: "grow" }, ["Key of this machine (kept in the centre, never shown again)", input]),
+    el("button", { cls: "main", type: "submit" }, ["Save key"]),
+    v.has_key ? el("button", { cls: "stop", type: "button", on: () => changeMachine(mn, { key: "" }) }, ["Remove key"]) : "",
+  ]);
+  form.addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    if (!input.value) { notice("Type the key first."); return; }
+    const key = input.value;
+    input.value = "";
+    changeMachine(mn, { key });
+  });
+  return form;
+}
+
+function machineCard(v, valid) {
+  const mn = v.name;
+  const st = statusOf(v);
+  const kids = [
+    el("div", { cls: "top" }, [el("h2", { cls: "grow" }, [mn]), el("span", { cls: st.cls }, [el("span", { cls: "dot" }), st.text])]),
+    el("small", {}, [v.address + (v.has_key ? "  (a key is kept in the centre)" : "")]),
+    el("div", { cls: "row" }, [
+      el("button", { type: "button", "data-fid": "power:" + mn, on: () => changeMachine(mn, { on: !v.on }) }, [v.on ? "Turn off" : "Turn on"]),
+      el("button", { cls: "stop", type: "button", "data-fid": "remove:" + mn, on: () => removeMachine(mn) }, ["Remove"]),
+    ]),
+  ];
+  if (!v.on) {
+    kids.push(el("p", { cls: "dim" }, ["Off. Its dashboard is not asked. Turn it on to see it again."]));
+  } else if (!v.state) {
+    if (st.text === "key refused") {
+      kids.push(el("p", { cls: "note bad" }, ["The dashboard refuses the centre" + (v.error ? ": " + v.error : ".")]));
+      kids.push(keyForm(v));
+    } else if (st.text === "older version") {
+      kids.push(el("p", { cls: "note" }, ["This dashboard is older than the centre and has no state to show."]));
+    } else {
+      kids.push(el("p", { cls: "note bad" }, [v.error && /does not answer/.test(v.error) ? v.error : "Does not answer" + (v.error ? ": " + v.error : ".")]));
+      if (v.has_key) kids.push(keyForm(v));
+    }
+  } else {
+    const s = v.state;
+    valid.add(machineScope(mn));
+    if (Array.isArray(s.agents)) for (const a of s.agents) valid.add(agentScope(mn, a.id));
+    if (v.older) kids.push(el("p", { cls: "note" }, ["This dashboard is version " + txt(v.version) + ", older than the centre's " +
+      txt(centreVersion) + ". Parts it does not have show as \"" + NOT_IN + "\"."]));
+    kids.push(versionLine(v));
+    kids.push(el("dl", {}, machineRows(s.machine)));
+    kids.push(el("div", { cls: "row", role: "group", "aria-label": "Machine tools of " + mn },
+      [machineToolButton(mn, "terminal", "Terminal"), machineToolButton(mn, "telemetry", "Telemetry")]));
+    const slot = el("div", { cls: "slot", "data-slot": machineScope(mn) }, []);
+    const open = live.get(machineScope(mn));
+    if (open) slot.append(open.node);
+    kids.push(slot);
+    kids.push(arrivesBlock(mn));
+    kids.push(agentsBlock(mn, s));
+    kids.push(tmuxBlock(mn, s));
+  }
+  return el("article", { cls: "mcard", "aria-label": "Machine " + mn }, kids);
+}
+
+async function removeMachine(mn) {
+  if (!window.confirm("Remove " + mn + " from the centre? The machine and its agents are not changed.")) return;
+  notice("");
+  try {
+    await call(null, "DELETE", "/machines/" + encodeURIComponent(mn));
+    await load(true);
+  } catch (e) { notice(mn + ": " + e.message); }
+}
+
+function renderFound() {
+  const box = $("found");
+  box.textContent = "";
+  if (!found.length) { box.append(el("li", { cls: "dim" }, ["No other machine with a dashboard was found on the network."])); return; }
+  for (const f of found) {
+    const name = f.machine || f.name || f.address;
+    box.append(el("li", {}, [
+      el("div", { cls: "grow" }, [el("strong", {}, [name]), el("br"), el("small", {}, [f.address + ", version " + txt(f.version)])]),
+      el("button", { type: "button", "data-fid": "add:" + name, "aria-label": "Add " + name, on: () => prefillAdd(name, f.address) }, ["Add"]),
+    ]));
+  }
+}
+
+// The survey: what each machine of the network holds, as its last answer over SSH. Nothing is changed there.
+const KIT_WORDS = { new: "the kit", old: "the old kit", none: "no kit" };
+function surveyUser(u) {
+  const kit = KIT_WORDS[u.kit] || "no kit";
+  const parts = [u.user + ": " + kit + (u.version ? " " + u.version : "")];
+  if (u.old_files.length) parts.push(u.old_files.length + " old project file" + (u.old_files.length === 1 ? "" : "s"));
+  parts.push("Claude " + (u.claude ? "signed in" : "not signed in"), "GitHub " + (u.gh ? "signed in" : "not signed in"));
+  const rows = [el("div", {}, [parts.join(", ")])];
+  for (const s of u.sessions) {
+    const mark = s.kind === "old" ? "old kit" : s.kind === "new" ? "kit" : "not the kit's";
+    rows.push(el("small", { cls: "dim" }, ["session " + s.name + " in " + txt(s.folder) + " (" + mark + ")"]), el("br"));
+  }
+  return el("div", {}, rows);
+}
+// the user a surveyed machine is added with: the one the centre signed in as; after a sign-in as root, the first
+// user with the kit, else the first user, else agent
+function addUserOf(m) {
+  if (m.sign_in && m.sign_in !== "root") return m.sign_in;
+  const users = m.users || [];
+  const u = users.find((x) => x.kit === "new") || users[0];
+  return u ? u.user : "agent";
+}
+// true when a machine of this address is added to the centre already
+function isAdded(m, list) {
+  return list.some((v) => {
+    try { return new URL(v.address).hostname.replace(/^\[|\]$/g, "") === m.address; } catch (e) { return false; }
+  });
+}
+function logText(x) {
+  return new Date(x.time * 1000).toLocaleString() + "  " + (x.name || x.address) + " (" + x.address + "): " + txt(x.error);
+}
+function renderSurvey(list, log) {
+  const box = $("survey");
+  box.textContent = "";
+  for (const m of list.filter((x) => x.ok)) {
+    const name = m.name || m.address;
+    const body = !m.users.length ? [el("small", { cls: "dim" }, ["signed in as " + m.sign_in + "; no user with a kit or Claude"])]
+      : m.users.map(surveyUser);
+    const user = addUserOf(m);
+    box.append(el("li", {}, [
+      el("div", { cls: "grow" }, [el("strong", {}, [name]), " ", el("small", { cls: "dim" }, [m.address]), ...body]),
+      isAdded(m, views) ? el("small", { cls: "chip" }, ["added"]) : parked("ssh-add") ? null
+        : el("button", { type: "button", "data-fid": "survey-add:" + name, "aria-label": "Add " + name + " as " + user,
+          on: () => prefillSsh(name, m.address, user) }, ["Add"]),
+    ]));
+  }
+  const lines = (log || []).slice().reverse();
+  $("survey-log-box").hidden = !lines.length;
+  $("survey-log-sum").textContent = "Log: " + lines.length + " line" + (lines.length === 1 ? "" : "s") + " of machines that did not let the centre in";
+  $("survey-log").replaceChildren(...lines.map((x) => el("li", {}, [el("small", { cls: "mono" }, [logText(x)])])));
+}
+async function runSurvey() {
+  const b = $("survey-run");
+  b.disabled = true;
+  $("survey-say").textContent = "Asking the machines over SSH...";
+  try {
+    const got = await call(null, "POST", "/survey");
+    renderSurvey(got.machines, got.log);
+    const ok = got.machines.length, no = got.asked - ok;
+    $("survey-say").textContent = !got.asked ? "Tailscale names no machine that is online."
+      : ok + " of " + got.asked + " machines let the centre in." + (no ? " " + no + " did not: see the log below." : "");
+    if (no) $("survey-log-box").open = true;
+  } catch (e) {
+    $("survey-say").textContent = "The survey did not run: " + e.message;
+  }
+  b.disabled = false;
+}
+
+// a machine of the survey is added over SSH: the form is filled, and the owner starts the install himself
+function prefillSsh(name, address, user) {
+  const f = $("ssh-add");
+  f.elements.name.value = name;
+  f.elements.address.value = address;
+  f.elements.user.value = user;
+  f.elements.password.value = "";
+  f.scrollIntoView({ block: "nearest" });
+  f.querySelector("button[type=submit]").focus();
+}
+
+function prefillAdd(name, address) {
+  const f = $("add");
+  f.elements.name.value = name;
+  f.elements.address.value = address;
+  f.elements.key.focus();
+  f.scrollIntoView({ block: "nearest" });
+}
+
+// the agents of all added machines, as the groups refer to them: MACHINE/ID
+function allAgents() {
+  const out = [];
+  for (const v of views) {
+    if (!v.state || !Array.isArray(v.state.agents)) continue;
+    for (const a of v.state.agents) out.push({ key: v.name + "/" + a.id, machine: v.name, name: a.name || a.id, running: !!a.running });
+  }
+  return out;
+}
+
+async function saveGroups(next) {
+  notice("");
+  try {
+    const r = await call(null, "PUT", "/groups", { groups: next });
+    groups = r.groups;
+    render(true);
+  } catch (e) { notice("Groups: " + e.message); }
+}
+
+function groupCard(g, all) {
+  const rename = el("input", { "aria-label": "Name of the group", maxlength: "64", autocomplete: "off", value: g.name });
+  const kids = [
+    el("div", { cls: "top" }, [el("h2", { cls: "grow" }, [g.name])]),
+    el("div", { cls: "row" }, [
+      el("label", { cls: "grow" }, ["Name", rename]),
+      el("button", { type: "button", on: () => {
+        const name = rename.value.trim();
+        if (!name) { notice("A group needs a name."); return; }
+        saveGroups(groups.map((x) => (x === g ? { name, agents: g.agents } : x)));
+      } }, ["Rename"]),
+      el("button", { cls: "stop", type: "button", on: () => {
+        if (window.confirm("Delete the group " + g.name + "? Its agents are not changed.")) saveGroups(groups.filter((x) => x !== g));
+      } }, ["Delete group"]),
+    ]),
+  ];
+  const items = g.agents.map((key) => {
+    const a = all.find((x) => x.key === key);
+    const label = a ? a.name + " on " + a.machine + " (" + (a.running ? "running" : "stopped") + ")"
+      : key + " (not shown: its machine is off or does not answer)";
+    return el("li", {}, [el("span", { cls: "grow" }, [label]),
+      el("button", { type: "button", "aria-label": "Take " + key + " out of " + g.name,
+        on: () => saveGroups(groups.map((x) => (x === g ? { name: x.name, agents: x.agents.filter((k) => k !== key) } : x))) }, ["Take out"])]);
+  });
+  kids.push(items.length ? el("ul", { cls: "plain" }, items) : el("p", { cls: "dim" }, ["No agents in this group yet."]));
+  const rest = all.filter((a) => !g.agents.includes(a.key));
+  const pick = el("select", { "aria-label": "Agent to put in " + g.name }, rest.map((a) =>
+    el("option", { value: a.key }, [a.name + " on " + a.machine])));
+  kids.push(el("div", { cls: "row" }, [pick,
+    el("button", { type: "button", disabled: !rest.length, on: () => {
+      if (!pick.value) return;
+      saveGroups(groups.map((x) => (x === g ? { name: x.name, agents: x.agents.concat([pick.value]) } : x)));
+    } }, ["Add to group"])]));
+  return el("article", { cls: "gcard", "aria-label": "Group " + g.name }, kids);
+}
+
+function renderGroups() {
+  const box = $("groups");
+  box.textContent = "";
+  if (!groups.length) { box.append(el("p", { cls: "empty" }, ["No groups yet. Make one with the box above."])); return; }
+  const all = allAgents();
+  for (const g of groups) box.append(groupCard(g, all));
+}
+
+function renderOthers() {
+  const box = $("others");
+  box.hidden = !others.length;
+  box.textContent = others.length
+    ? "Another centre is running on " + others.map((c) => (c.machine || "an unknown machine") + " (" + c.address + ")").join(", ") +
+      ". Centres in one network are equal: each works by itself."
+    : "";
+}
+
+// Rebuilds the lists. A timer refresh waits while the keyboard focus is inside a list, so a control keeps its place;
+// an action of the owner (force) always redraws.
+function render(force) {
+  const key = JSON.stringify([views, groups, found, others, centreVersion, versions, runList, runOn, arrivals, checks, settings]);
+  const active = document.activeElement;
+  const busy = !!(active && active.closest && active.closest("#machines, #found, #groups"));
+  if (!force && (busy || key === renderedKey)) return;
+  renderedKey = key;
+  keepFocus(() => {
+    const valid = new Set();
+    for (const v of views) valid.add(costScope(v.name));
+    const box = $("machines");
+    box.textContent = "";
+    if (!views.length) box.append(el("p", { cls: "empty" }, ["No machines added yet. Add one from the list found on the network, or with the form below."]));
+    for (const v of views) box.append(machineCard(v, valid));
+    renderFound();
+    renderGroups();
+    renderOthers();
+    for (const scope of [...live.keys()]) if (!valid.has(scope)) closeFor(scope);
+  });
+  syncTools();
+}
+
+function showView(v) {
+  $("by-machine").hidden = v !== "machine";
+  $("by-group").hidden = v !== "group";
+  $("view-machine").setAttribute("aria-pressed", String(v === "machine"));
+  $("view-group").setAttribute("aria-pressed", String(v === "group"));
+  render(true);
+}
+
+async function load(force) {
+  try {
+    const s = await call(null, "GET", "/state");
+    notice("");
+    centreVersion = s.centre.version;
+    $("ver").textContent = "centre " + centreVersion + " on " + s.centre.machine;
+    $("stamp").textContent = "updated " + clock();
+    views = s.machines;
+    groups = s.groups;
+    found = s.found;
+    others = s.other_centres;
+    settings = s.settings;
+    $("ssh-cmd").textContent = s.install_cmd;
+    if (!$("links").contains(document.activeElement)) fillLinks();
+    showIncusSection();
+    const shapeNow = JSON.stringify(views.map((v) => [v.name, v.on, !!v.state, v.version]));
+    if (shapeNow !== shape || Date.now() - versionsAt > 60000) {
+      shape = shapeNow;
+      loadVersions();
+      loadCosts();
+      loadArrives();
+      loadIncus();
+    }
+    render(!!force);
+  } catch (e) {
+    notice("Cannot read the centre: " + e.message);
+  }
+}
+
+function fillLinks() {
+  const f = $("links");
+  f.elements.grafana.value = settings.grafana || "";
+  f.elements.langfuse.value = settings.langfuse || "";
+  f.elements.repo.value = settings.repo || "";
+  f.elements.owner_key.value = settings.owner_key || "";
+  f.elements.install_cmd.value = settings.install_cmd || "";
+  f.elements.ssh_key.value = settings.ssh_key || "";
+  f.elements.ssh_user.value = settings.ssh_user || "";
+  f.elements.incus_url.value = settings.incus_url || "";
+  f.elements.incus_project.value = settings.incus_project || "";
+  $("repo-save").disabled = $("repo-load").disabled = !settings.repo;
+}
+
+// Incus: the section shows when the settings name an address. Nothing is asked of Incus until then.
+let incusProfiles = [];   // {name, description, cloud_init} from the last load
+function showIncusSection() {
+  const on = !!settings.incus_url;
+  $("incus").hidden = !on;
+  $("incus-unset").hidden = on;
+}
+function incusSay(text, bad) {
+  $("incus-say").textContent = text;
+  $("incus-say").className = bad ? "note bad" : "note";
+  $("incus-say").hidden = !text;
+}
+function showCloud() {
+  const f = $("incus-make");
+  const p = incusProfiles.find((x) => x.name === f.elements.profile.value);
+  $("incus-cloud").textContent = p ? (p.cloud_init || "no cloud-init in this profile") : "";
+}
+async function loadIncus() {
+  if (parked("incus") || !settings.incus_url) return;
+  try {
+    const [inst, prof, img] = await Promise.all([
+      call(null, "GET", "/incus/instances"), call(null, "GET", "/incus/profiles"), call(null, "GET", "/incus/images")]);
+    paintIncus(inst.instances, prof.profiles, img.images);
+  } catch (e) { incusSay(e.message, true); }
+}
+function paintIncus(instances, profiles, images) {
+  const list = $("incus-list");
+  list.textContent = "";
+  if (!instances.length) list.append(el("li", { cls: "dim" }, ["No machines in this project."]));
+  for (const i of instances) {
+    list.append(el("li", {}, [
+      el("strong", {}, [i.name]),
+      el("span", { cls: "grow dim" }, [i.status || "status not told", i.profiles.length ? " (profiles: " + i.profiles.join(", ") + ")" : ""]),
+      el("button", { type: "button", "data-fid": "incus-start:" + i.name, on: () => incusState(i.name, "start") }, ["Start"]),
+      el("button", { type: "button", cls: "stop", "data-fid": "incus-stop:" + i.name, on: () => incusState(i.name, "stop") }, ["Stop"]),
+    ]));
+  }
+  incusProfiles = profiles;
+  const f = $("incus-make");
+  const keepProfile = f.elements.profile.value, keepImage = f.elements.image.value;
+  f.elements.profile.textContent = "";
+  for (const p of profiles) f.elements.profile.append(el("option", { value: p.name }, [p.name]));
+  f.elements.image.textContent = "";
+  for (const im of images) {
+    if (!im.fingerprint) continue;
+    const label = (im.aliases[0] || im.fingerprint.slice(0, 12)) + (im.description ? " - " + im.description : "");
+    f.elements.image.append(el("option", { value: im.fingerprint }, [label]));
+  }
+  if (keepProfile) f.elements.profile.value = keepProfile;
+  if (keepImage) f.elements.image.value = keepImage;
+  showCloud();
+}
+async function incusState(name, action) {
+  if (action === "stop" && !window.confirm("Stop the machine " + name + " in Incus?")) return;
+  incusSay((action === "start" ? "Starting " : "Stopping ") + name + "...");
+  try {
+    await call(null, "POST", "/incus/instances/" + encodeURIComponent(name) + "/" + action);
+    incusSay(name + (action === "start" ? " is starting" : " is stopping") + ". Refresh to see its state.");
+    await loadIncus();
+  } catch (e) { incusSay(e.message, true); }
+}
+$("incus-refresh").addEventListener("click", () => loadIncus());
+$("incus-make").elements.profile.addEventListener("change", showCloud);
+$("incus-make").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = $("incus-make");
+  if (!f.checkValidity()) { f.reportValidity(); return; }
+  const body = { name: f.elements.name.value.trim(), profile: f.elements.profile.value, image: f.elements.image.value };
+  try {
+    await call(null, "POST", "/incus/instances", body);
+    f.elements.name.value = "";
+    $("incus-error").hidden = true;
+    incusSay("Made " + body.name + " and asked Incus to start it. Refresh to see its state.");
+    await loadIncus();
+  } catch (e) {
+    $("incus-error").textContent = e.message;
+    $("incus-error").hidden = false;
+  }
+});
+
+function repoShow(text, bad) {
+  $("repo-result").textContent = text;
+  $("repo-result").className = bad ? "note bad" : "note";
+}
+
+function openForm(mn, a) {
+  formFor = { machine: mn, id: a ? a.id : null };
+  const f = $("profile");
+  f.reset();
+  $("form-title").textContent = (a ? "Edit " + a.name : "New agent") + " on " + mn;
+  $("delete").hidden = !a;
+  $("form-error").hidden = true;
+  if (a) {
+    for (const k of ["name", "label", "dir", "role", "mode", "model", "effort", "subm", "sube", "window", "subs", "launch", "addons"]) {
+      if (f.elements[k]) f.elements[k].value = a[k] ?? "";
+    }
+    f.elements.autostart.checked = !!a.autostart;
+  }
+  $("form").showModal();
+}
+
+function formData(f) {
+  const d = {};
+  for (const k of ["name", "label", "dir", "role", "mode", "model", "effort", "subm", "sube", "window", "subs", "launch", "addons"]) {
+    d[k] = f.elements[k].value.trim();
+  }
+  d.autostart = f.elements.autostart.checked;
+  d.fresh = f.elements.fresh.checked;
+  return d;
+}
+
+$("cancel").addEventListener("click", () => $("form").close());
+$("profile").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = $("profile");
+  if (!f.checkValidity()) { f.reportValidity(); return; }
+  try {
+    if (formFor.id) await call(formFor.machine, "PUT", "/profiles/" + formFor.id, formData(f));
+    else await call(formFor.machine, "POST", "/profiles", formData(f));
+    $("form").close();
+    await load(true);
+  } catch (e) {
+    $("form-error").textContent = e.message;
+    $("form-error").hidden = false;
+  }
+});
+$("delete").addEventListener("click", async () => {
+  if (!formFor || !formFor.id || !window.confirm("Delete this agent's profile on " + formFor.machine + "? The folder and its files are kept.")) return;
+  try {
+    await call(formFor.machine, "DELETE", "/profiles/" + formFor.id);
+    $("form").close();
+    await load(true);
+  } catch (e) {
+    $("form-error").textContent = e.message;
+    $("form-error").hidden = false;
+  }
+});
+$("survey-run").addEventListener("click", runSurvey);
+$("links").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = $("links");
+  const body = { grafana: f.elements.grafana.value.trim(), langfuse: f.elements.langfuse.value.trim(), repo: f.elements.repo.value.trim(),
+    owner_key: f.elements.owner_key.value.trim(), install_cmd: f.elements.install_cmd.value.trim(),
+    ssh_key: f.elements.ssh_key.value.trim(), ssh_user: f.elements.ssh_user.value.trim(),
+    incus_url: f.elements.incus_url.value.trim(), incus_project: f.elements.incus_project.value.trim() };
+  try {
+    settings = await call(null, "PUT", "/settings", body);
+    fillLinks();
+    $("links-error").hidden = true;
+    showIncusSection();
+    loadIncus();
+    render(true);
+  } catch (e) {
+    $("links-error").textContent = e.message;
+    $("links-error").hidden = false;
+  }
+});
+$("repo-save").addEventListener("click", async () => {
+  repoShow("Saving...");
+  try {
+    await call(null, "POST", "/repo/save");
+    repoShow("Saved to " + settings.repo + ".");
+  } catch (e) { repoShow(e.message, true); }
+});
+$("repo-load").addEventListener("click", async () => {
+  if (!window.confirm("Load the settings from " + settings.repo + "? The list of machines is replaced by the one in the repository. Machines new to this centre come in turned off, with no key. The keys of the machines already here are kept.")) return;
+  repoShow("Loading...");
+  try {
+    await call(null, "POST", "/repo/load");
+    repoShow("Loaded from " + settings.repo + ".");
+    await load(true);
+  } catch (e) { repoShow(e.message, true); }
+});
+$("add").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = $("add");
+  if (!f.checkValidity()) { f.reportValidity(); return; }
+  const body = { name: f.elements.name.value.trim(), address: f.elements.address.value.trim() };
+  if (f.elements.key.value) body.key = f.elements.key.value;
+  try {
+    await call(null, "POST", "/machines", body);
+    f.reset();
+    $("add-error").hidden = true;
+    await load(true);
+  } catch (e) {
+    f.elements.key.value = "";   // the key is not kept in the form either way
+    $("add-error").textContent = e.message;
+    $("add-error").hidden = false;
+  }
+});
+// Add over SSH: one job on the centre; its steps are shown as they pass. The password is cleared once sent.
+let sshBusy = false;
+function sshSteps(steps) {
+  $("ssh-steps").replaceChildren(...steps.map((s) => el("li", {}, [(s.ok ? "Done: " : "Failed: ") + s.step + (s.error ? " - " + s.error : "")])));
+}
+async function watchSsh(id) {
+  for (;;) {
+    const job = await call(null, "GET", "/machines/ssh/" + id);
+    sshSteps(job.steps);
+    if (job.state !== "running") return job;
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+}
+$("ssh-add").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = $("ssh-add");
+  if (sshBusy) return;
+  if (!f.checkValidity()) { f.reportValidity(); return; }
+  const body = { name: f.elements.name.value.trim(), address: f.elements.address.value.trim(), user: f.elements.user.value.trim() };
+  if (f.elements.password.value) body.password = f.elements.password.value;
+  const sent = call(null, "POST", "/machines/ssh", body);
+  f.elements.password.value = "";   // not kept in the form, whatever the answer
+  sshBusy = true;
+  $("ssh-error").hidden = true;
+  sshSteps([]);
+  try {
+    const started = await sent;
+    const job = await watchSsh(started.id);
+    if (job.state === "done") {
+      f.reset();
+      f.elements.user.value = "agent";
+      await load(true);
+    } else {
+      $("ssh-error").textContent = job.error || "The install did not finish.";
+      $("ssh-error").hidden = false;
+    }
+  } catch (e) {
+    $("ssh-error").textContent = e.message;
+    $("ssh-error").hidden = false;
+  } finally {
+    sshBusy = false;
+  }
+});
+$("ssh-copy").addEventListener("click", () => {
+  navigator.clipboard.writeText($("ssh-pub").textContent).then(() => notice("The public key is copied."), () => notice("The key could not be copied: select it and copy it."));
+});
+if (!parked("ssh-add")) call(null, "GET", "/ssh/key").then((k) => { $("ssh-pub").textContent = k.public; }).catch((e) => { $("ssh-pub").textContent = e.message; });
+
+$("group-make").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const name = $("group-new").value.trim();
+  if (!name) { notice("A group needs a name."); return; }
+  $("group-new").value = "";
+  saveGroups(groups.concat([{ name, agents: [] }]));
+});
+$("view-machine").addEventListener("click", () => showView("machine"));
+$("view-group").addEventListener("click", () => showView("group"));
+
+buildPeriods();
+$("update-all").addEventListener("click", () => {
+  const names = outdatedNames();
+  if (!names.length || runOn) return;
+  if (!window.confirm("Update " + names.join(", ") + "? The agents keep running. An agent that needs a restart to use the new kit is marked \"restart to apply\"; restart it when you choose.")) return;
+  runUpdates(names);
+});
+showView("machine");
+load(true);
+setInterval(() => load(false), 10000);
+</script>
+</html>

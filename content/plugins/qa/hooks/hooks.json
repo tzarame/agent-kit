@@ -1,0 +1,6 @@
+{
+  "description": "A QA session changes no file of the project: Write, Edit and NotebookEdit on a file in the session's folder are denied",
+  "hooks": {
+    "PreToolUse": [{"matcher": "Write|Edit|NotebookEdit", "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/no-code.sh\"", "timeout": 10}]}]
+  }
+}

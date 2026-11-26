@@ -1,0 +1,24 @@
+#!/bin/bash
+# bin/openspec - OpenSpec's program for a session with the plugin openspec, at the version the plugin's skills were
+# written for. The first call downloads that release into ~/.local/share/agent-kit/openspec/VERSION (about 90 MB, no
+# Node.js) with OpenSpec's own install script of the same tag, which checks the program against the release's
+# SHA256SUMS. An openspec the user installed is not touched, and one that is earlier on the PATH is run in place of
+# this one. OpenSpec's anonymous usage statistics are off, its own documented way (OPENSPEC_TELEMETRY=0).
+# "openspec init" with no --tools gets "--tools none": the skills come from the plugin, so the project gets only its
+# openspec/ folder, and no file of Claude Code is written.
+# AGENT_KIT_OPENSPEC_URL: another address of the install script (the tests).
+set -euo pipefail
+VERSION=2.1.1
+DIR=$HOME/.local/share/agent-kit/openspec/$VERSION
+URL=${AGENT_KIT_OPENSPEC_URL:-https://raw.githubusercontent.com/Fission-AI/OpenSpec/v$VERSION/scripts/binary/install.sh}
+if [ ! -x "$DIR/openspec" ]; then
+  echo "openspec: downloading OpenSpec $VERSION into $DIR" >&2
+  mkdir -p "$DIR"; tmp=$(mktemp "$DIR/.install.XXXXXX")
+  if curl -fsSL --retry 2 -o "$tmp" "$URL" && OPENSPEC_VERSION=$VERSION OPENSPEC_INSTALL_DIR=$DIR sh "$tmp" > /dev/null
+  then rm -f "$tmp"
+  else rm -f "$tmp"; echo "openspec: OpenSpec $VERSION is not installed (the download failed)" >&2; exit 1; fi
+fi
+if [ "${1:-}" = init ]; then
+  case " $* " in *" --tools"*) ;; *) set -- "$@" --tools none ;; esac
+fi
+OPENSPEC_TELEMETRY=0 exec "$DIR/openspec" "$@"

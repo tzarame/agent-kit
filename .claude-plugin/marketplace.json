@@ -1,0 +1,44 @@
+{
+ "name": "agent-kit",
+ "description": "The kit's plugins for Claude Code; the kit gives them to its sessions with --plugin-dir.",
+ "owner": {
+  "name": "agent-kit"
+ },
+ "plugins": [
+  {
+   "name": "agent-kit",
+   "source": "./content/plugins/agent-kit",
+   "description": "The rules every session and subagent of the kit starts with, the gate owner-run, and the skills every kind of work needs."
+  },
+  {
+   "name": "dev",
+   "source": "./content/plugins/dev",
+   "description": "Architecture, development and deploy: writing and changing code, the structure of an application and of a system, the decisions, what runs and where."
+  },
+  {
+   "name": "design",
+   "source": "./content/plugins/design",
+   "description": "How a thing looks and how an interface works."
+  },
+  {
+   "name": "qa",
+   "source": "./content/plugins/qa",
+   "description": "Quality assurance: testing a product as a user would and reporting each finding; the session changes no file of the project."
+  },
+  {
+   "name": "spec",
+   "source": "./content/plugins/spec",
+   "description": "Planning in OpenSpec: the agent spec works a change out and writes no code; a hook keeps its writing under openspec/."
+  },
+  {
+   "name": "openspec",
+   "source": "./content/plugins/openspec",
+   "description": "OpenSpec for a project: its program, downloaded at the first call, and its skills to propose, apply, update, sync and archive a change."
+  },
+  {
+   "name": "toolsmith",
+   "source": "./content/plugins/toolsmith",
+   "description": "Work on the kit itself and on the configuration of Claude Code: where each thing is set."
+  }
+ ]
+}

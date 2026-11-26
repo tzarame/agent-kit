@@ -1,0 +1,7 @@
+{
+ "name": "qa",
+ "description": "Quality assurance: testing a product as a user would and reporting each finding; the session changes no file of the project.",
+ "author": {
+  "name": "agent-kit"
+ }
+}

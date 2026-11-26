@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# bin/gh - in front of gh in a session, when the App's key is on the machine (kit start puts this folder first on the
+# PATH, by the lines of gh-app.sh env): gh runs with the App's token of the repository's owner. See ../gh-app.sh
+exec bash "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../gh-app.sh" gh "$@"

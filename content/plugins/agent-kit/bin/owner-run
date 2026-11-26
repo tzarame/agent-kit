@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+# owner-run - the gate for a command the owner runs himself (openspec/changes/owner-commands).
+#   owner-run stage NAME DIR   DIR holds run.sh and rollback.sh; records their hash. Refused with no bwrap.
+#   owner-run test NAME        runs run.sh, then rollback.sh, in bwrap; passes when the declared files are restored.
+#   owner-run approve NAME HASH  the reviewer's verdict; only after a passed test of the same hash.
+#   owner-run cmd NAME         prints the owner's line; only with a verdict for the hash of today's files.
+#   owner-run exec NAME HASH   the owner's line runs this: the hash checked on a copy, run once, exit 0.
+#   owner-run undo ID          runs the rollback kept in the folder ID, once, exit 0.
+# Headers of run.sh: "# owner-run-goal: TEXT" (needed), "# owner-run-user: root" (else the user running this),
+# "# owner-run-file: ~/PATH" (a file it changes: copied into the sandbox and compared after the rollback),
+# "# owner-run-ro: ~/PATH" (a folder it reads, such as ~/.local/bin: bound read-only into the sandbox).
+# The scripts get OWNER_RUN_SAVE, a folder kept with the rollback, for the state before the change.
+set -u
+ST="${XDG_STATE_HOME:-$HOME/.local/state}/agent-kit/owner-run"
+RB="${XDG_DATA_HOME:-$HOME/.local/share}/agent-kit/owner-run/rollback"
+CONF="$HOME/.config/agent-kit/owner-run.env"
+
+die() { echo "owner-run: $*" >&2; exit 1; }
+name_ok() { [[ $1 =~ ^[a-z0-9][a-z0-9-]{0,40}$ ]] || die "a name is a-z, 0-9 and -, up to 41: $1"; }
+hash_ok() { [[ $1 =~ ^[0-9a-f]{16}$ ]]; }
+# hash DIR: the first 16 hex of the sha256 of run.sh and rollback.sh
+hash_of() { (cd "$1" && sha256sum run.sh rollback.sh 2>/dev/null) | sha256sum | cut -c1-16; }
+head_of() { sed -n "s/^# owner-run-$2: *//p" "$1/run.sh"; }   # head_of DIR KEY: the values of a header
+stage_get() { sed -n "s/^$2=//p" "$ST/stage/$1" 2>/dev/null; }  # stage_get NAME KEY
+need_bwrap() {
+  command -v bwrap >/dev/null || die "no bwrap: the review needs it. Install the package bubblewrap (as root: apt-get install -y bubblewrap)"
+}
+# conf KEY: a value of owner-run.env, read as text, never run
+conf() { sed -n "s/^$1=//p" "$CONF" 2>/dev/null | tail -n 1; }
+
+stage() {
+  local name=$1 dir; name_ok "$name"
+  need_bwrap
+  dir=$(cd "${2:?owner-run stage NAME DIR}" 2>/dev/null && pwd -P) || die "no folder: $2"
+  [ -f "$dir/run.sh" ] && [ -f "$dir/rollback.sh" ] || die "$dir needs run.sh and rollback.sh"
+  [ -n "$(head_of "$dir" goal)" ] || die "run.sh has no '# owner-run-goal:' line"
+  local user; user=$(head_of "$dir" user | tail -n 1); user=${user:-$(id -un)}
+  [[ $user =~ ^[a-z_][a-z0-9_-]*$ ]] || die "a bad user: $user"
+  local f; while read -r f; do [ -z "$f" ] && continue
+    [[ $f == \~/* && $f != *..* ]] || die "a declared path starts with ~/ and has no ..: $f"
+  done < <(head_of "$dir" file; head_of "$dir" ro)
+  mkdir -p "$ST/stage" || die "no state folder"
+  local h; h=$(hash_of "$dir")
+  printf 'dir=%s\nhash=%s\nuser=%s\n' "$dir" "$h" "$user" > "$ST/stage/$name.new" && mv "$ST/stage/$name.new" "$ST/stage/$name"
+  rm -f "$ST/verdict/$name"
+  echo "$name $h"
+}
+
+# check NAME: the folder of the stage and its hash, the same as recorded; prints the hash
+check() {
+  local dir h; dir=$(stage_get "$1" dir); [ -n "$dir" ] || die "not staged: $1"
+  h=$(hash_of "$dir"); [ "$h" = "$(stage_get "$1" hash)" ] || die "$1 changed after the stage: stage it again"
+  echo "$h"
+}
+
+test_() {
+  local name=$1; name_ok "$name"; need_bwrap
+  local h dir; h=$(check "$name") || exit 1; dir=$(stage_get "$name" dir)
+  BOX=$(mktemp -d) || die "no temp folder"
+  trap 'rm -rf "$BOX"' EXIT
+  local box=$BOX
+  mkdir -p "$box/home" "$box/before"
+  local -a files=() ros=() binds=()
+  local f p
+  while read -r f; do [ -n "$f" ] && files+=("${f#\~/}"); done < <(head_of "$dir" file)
+  while read -r f; do [ -n "$f" ] && ros+=("${f#\~/}"); done < <(head_of "$dir" ro)
+  for p in "${files[@]}"; do   # the copy the script changes, and its state before
+    if [ -e "$HOME/$p" ]; then
+      mkdir -p "$box/home/$(dirname "$p")" && cp -a "$(readlink -f "$HOME/$p")" "$box/home/$p" || die "cannot copy ~/$p"
+    fi
+  done
+  for p in "${ros[@]}"; do [ -e "$HOME/$p" ] && binds+=(--ro-bind "$HOME/$p" "$HOME/$p"); done
+  (cd "$box/home" && for p in "${files[@]}"; do [ -e "$p" ] && stat -c '%a %n' "$p" && sha256sum "$p"; done) > "$box/before.txt"
+  local inner='cd "$HOME"; mkdir -p "$OWNER_RUN_SAVE"
+echo "--- run.sh"; bash /tmp/owner-run/run.sh; echo "--- run.sh exit $?"
+echo "--- rollback.sh"; bash /tmp/owner-run/rollback.sh; echo "--- rollback.sh exit $?"'
+  local out
+  out=$(bwrap --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp --tmpfs /home --tmpfs /run \
+    --bind "$box/home" "$HOME" "${binds[@]}" --ro-bind "$dir" /tmp/owner-run \
+    --unshare-all --die-with-parent --setenv HOME "$HOME" --setenv OWNER_RUN_SAVE /tmp/save \
+    --setenv PATH "$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin" /bin/bash -c "$inner" 2>&1 < /dev/null)
+  local rc=$?
+  (cd "$box/home" && for p in "${files[@]}"; do [ -e "$p" ] && stat -c '%a %n' "$p" && sha256sum "$p"; done) > "$box/after.txt"
+  echo "$out"
+  local pass=1
+  [ "$rc" = 0 ] || { pass=0; echo "--- bwrap exit $rc"; }
+  grep -qx -- '--- run.sh exit 0' <<<"$out" || pass=0
+  grep -qx -- '--- rollback.sh exit 0' <<<"$out" || pass=0
+  if cmp -s "$box/before.txt" "$box/after.txt"; then echo "--- the declared files are restored (${#files[@]})"
+  else pass=0; echo "--- NOT restored:"; diff "$box/before.txt" "$box/after.txt"; fi
+  mkdir -p "$ST/tested"
+  if [ "$pass" = 1 ]; then echo "$name" > "$ST/tested/$h"; echo "PASSED $name $h"
+  else rm -f "$ST/tested/$h"; echo "FAILED $name $h"; exit 1; fi
+}
+
+approve() {
+  local name=$1 h=${2:-}; name_ok "$name"; hash_ok "$h" || die "a bad hash: $h"
+  [ "$(check "$name")" = "$h" ] || die "the hash is not today's of $name"
+  [ -f "$ST/tested/$h" ] || die "no passed test of $h: owner-run test $name"
+  mkdir -p "$ST/verdict" && echo "$h" > "$ST/verdict/$name" && echo "approved $name $h"
+}
+
+# hosts: the Tailscale name, then the LAN address
+ts_host() {
+  local h; h=$(conf TS_HOST)
+  [ -z "$h" ] && h=$(tailscale status --json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["Self"]["HostName"])' 2>/dev/null)
+  echo "${h:-$HOSTNAME}"
+}
+lan_host() {
+  local h; h=$(conf LAN_HOST)
+  [ -z "$h" ] && h=$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -n 1)
+  echo "$h"
+}
+
+cmd() {
+  local name=$1; name_ok "$name"
+  local h; h=$(check "$name") || exit 1
+  [ "$(cat "$ST/verdict/$name" 2>/dev/null)" = "$h" ] || die "no verdict for $name $h: it needs the review"
+  local user; user=$(stage_get "$name" user)
+  [ "$user" = root ] && die "a root step needs the root side of owner-run, not built yet"
+  local self; self=$(readlink -f "$0")
+  local a b line
+  a="ssh -o ConnectTimeout=5 -t $user@$(ts_host) $self exec $name $h"
+  b=$(lan_host); [ -n "$b" ] && b="ssh -o ConnectTimeout=5 -t $user@$b $self exec $name $h"
+  line=$a; [ -n "$b" ] && line="$a || $b"
+  [[ $line =~ ^[A-Za-z0-9\ ._/@|=-]+$ ]] || die "the line has a character a shell could read: $line"
+  mkdir -p "$ST" && { echo "$a"; [ -n "$b" ] && echo "$b"; } >> "$ST/printed"   # for the Stop hook owner-stop.sh
+  echo "$line"
+  [ -n "$b" ] && echo "with no || in the shell, the LAN alone: $b"
+  return 0
+}
+
+exec_() {
+  local name=${1:-} h=${2:-}
+  { [[ $name =~ ^[a-z0-9][a-z0-9-]{0,40}$ ]] && hash_ok "$h"; } || { echo "FAILED: a bad name or hash"; exit 0; }
+  local dir; dir=$(stage_get "$name" dir)
+  [ -n "$dir" ] || { echo "FAILED: $name is not staged here"; exit 0; }
+  [ "$(cat "$ST/verdict/$name" 2>/dev/null)" = "$h" ] || { echo "FAILED: $name $h has no verdict"; exit 0; }
+  mkdir -p "$ST/ran" "$RB" || { echo "FAILED: no state folder"; exit 0; }
+  local id; id="$(date +%Y%m%d-%H%M%S)-$name"
+  local new="$RB/.$id.new"
+  mkdir "$new" && cp "$dir/run.sh" "$dir/rollback.sh" "$new/" 2>/dev/null || { rm -rf "$new"; echo "FAILED: cannot copy $dir (gone after a reboot?)"; exit 0; }
+  [ "$(hash_of "$new")" = "$h" ] || { rm -rf "$new"; echo "FAILED: $name changed after its review"; exit 0; }
+  mkdir "$ST/ran/$h" 2>/dev/null || { rm -rf "$new"; echo "FAILED: $name $h has run already ($(cat "$ST/ran/$h/id" 2>/dev/null))"; exit 0; }
+  echo "$id" > "$ST/ran/$h/id"; mkdir "$new/save"; mv "$new" "$RB/$id"
+  echo "$name: $(head_of "$RB/$id" goal | head -n 1)"
+  (cd "$HOME" && OWNER_RUN_SAVE="$RB/$id/save" bash "$RB/$id/run.sh")
+  local rc=$?
+  echo "$rc" > "$RB/$id/exit"
+  if [ "$rc" = 0 ]; then echo "OK"; else echo "FAILED: run.sh exit $rc"; fi
+  echo "rollback: $(readlink -f "$0") undo $id"
+  exit 0
+}
+
+undo() {
+  local id=${1:-}
+  [[ $id =~ ^[0-9]{8}-[0-9]{6}-[a-z0-9-]+$ ]] && [ -f "$RB/$id/rollback.sh" ] || { echo "FAILED: no rollback $id"; exit 0; }
+  mkdir "$RB/$id/undone" 2>/dev/null || { echo "FAILED: $id is undone already"; exit 0; }
+  (cd "$HOME" && OWNER_RUN_SAVE="$RB/$id/save" bash "$RB/$id/rollback.sh")
+  local rc=$?
+  echo "$rc" > "$RB/$id/undone/exit"
+  if [ "$rc" = 0 ]; then echo "OK"; else echo "FAILED: rollback.sh exit $rc"; fi
+  exit 0
+}
+
+case "${1:-}" in
+  stage) shift; stage "${1:?owner-run stage NAME DIR}" "${2:-}" ;;
+  test) shift; test_ "${1:?owner-run test NAME}" ;;
+  approve) shift; approve "${1:?owner-run approve NAME HASH}" "${2:-}" ;;
+  cmd) shift; cmd "${1:?owner-run cmd NAME}" ;;
+  exec) shift; exec_ "$@" ;;
+  undo) shift; undo "$@" ;;
+  hosts) ts_host; lan_host; echo "$HOSTNAME" ;;   # the names of this machine, for owner-stop.sh
+  *) sed -n '2,12s/^# \{0,1\}//p' "$0"; exit 2 ;;
+esac

@@ -1,0 +1,6 @@
+{
+  "description": "The agent spec writes only under openspec/: Write, Edit and NotebookEdit on another file in the session's folder are denied",
+  "hooks": {
+    "PreToolUse": [{"matcher": "Write|Edit|NotebookEdit", "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/openspec-only.sh\"", "timeout": 10}]}]
+  }
+}

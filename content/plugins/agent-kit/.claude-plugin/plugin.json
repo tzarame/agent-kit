@@ -1,0 +1,7 @@
+{
+ "name": "agent-kit",
+ "description": "The rules every session and subagent of the kit starts with, the gate owner-run, and the skills every kind of work needs.",
+ "author": {
+  "name": "agent-kit"
+ }
+}

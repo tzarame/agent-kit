@@ -1,0 +1,7 @@
+{
+ "name": "spec",
+ "description": "Planning in OpenSpec: the agent spec works a change out and writes no code; a hook keeps its writing under openspec/.",
+ "author": {
+  "name": "agent-kit"
+ }
+}

@@ -1,0 +1,7 @@
+{
+ "name": "toolsmith",
+ "description": "Work on the kit itself and on the configuration of Claude Code: where each thing is set.",
+ "author": {
+  "name": "agent-kit"
+ }
+}

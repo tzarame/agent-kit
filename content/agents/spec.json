@@ -1,0 +1,72 @@
+{
+  "role": "spec.md",
+  "system_prompt": "../plugins/agent-kit/system-prompt.md",
+  "plugins": [
+    "spec",
+    "openspec",
+    "dev"
+  ],
+  "bundled_skills_off": [
+    "dataviz",
+    "artifact-design",
+    "artifact-diagramming",
+    "artifact-capabilities",
+    "update-config",
+    "keybindings-help",
+    "ship-local",
+    "steward",
+    "fewer-permission-prompts",
+    "claude-approvals",
+    "loop",
+    "schedule",
+    "claude-api",
+    "workflow-authoring",
+    "claude-in-chrome",
+    "run",
+    "plugin-authoring",
+    "init"
+  ],
+  "builtin_plugins_off": [
+    "cc-plugin-easel"
+  ],
+  "subagents_off": [
+    "claude",
+    "claude-code-guide",
+    "Plan",
+    "statusline-setup",
+    "web-fetch"
+  ],
+  "tools": [
+    "Bash",
+    "Read",
+    "Edit",
+    "Write",
+    "Skill",
+    "Agent",
+    "AskUserQuestion",
+    "ToolSearch",
+    "SendMessage",
+    "TaskStop",
+    "Monitor",
+    "NotebookEdit",
+    "EnterPlanMode",
+    "ExitPlanMode",
+    "ReadNotifications",
+    "ListAgents",
+    "PushNotification",
+    "SendUserFile",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "EnterWorktree",
+    "ExitWorktree"
+  ],
+  "subagent_tools": [
+    "WebSearch",
+    "WebFetch"
+  ],
+  "context_window": {
+    "haiku": 133000,
+    "*": 256000
+  }
+}

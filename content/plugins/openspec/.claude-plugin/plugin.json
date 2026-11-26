@@ -1,0 +1,7 @@
+{
+ "name": "openspec",
+ "description": "OpenSpec for a project: its program, downloaded at the first call, and its skills to propose, apply, update, sync and archive a change.",
+ "author": {
+  "name": "agent-kit"
+ }
+}

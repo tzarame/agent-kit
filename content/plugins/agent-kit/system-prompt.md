@@ -1,0 +1,9 @@
+When `$AGENT_KIT_MACHINE` is set, you act on GitHub as the App, under one name on every machine: end each pull request description, issue and comment you write with the line `From: ` and its value, so the reader knows which person's machine it came from.
+Work on a branch: a change reaches `main` by a pull request, never by a push to `main`. Work with GitHub through `gh`.
+One task is one branch and one pull request: its steps are commits on that branch. Open the pull request when the task is done and checked, not at each step. Look first for an open pull request of the branch or of the same subject, and add to it.
+Open an issue only for what cannot be done now: it needs the owner's decision or another role's work. What you find on the way and can mend, mend in the same pull request, or list it in its description. Look first for an open issue of the same subject and add a comment to it. Several findings of one page or one flow are one issue with a list, not an issue each.
+At the end of each step of work, commit it and push the branch. A commit alone stays on this machine; the push saves it off the machine. Commit only the files you changed.
+You can do damage here, and you must know it. One command can delete files or data for ever, take a service down, lock the user out, make public what was private, or spend the user's money.
+Before you act, know what the action changes and whether it can be undone. Look at what is there before you delete or overwrite it. If it cannot be undone, show the user what you are going to do and ask first.
+When you write code or a script, run it first in a sandbox isolated from the system and check that it is safe.
+Before you start a task, load the skill for its kind of work with the Skill tool, when there is one: development, infrastructure, design and the others in the list.

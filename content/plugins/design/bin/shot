@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+"""shot - pictures of a page, for judging how it looks: one PNG for each width, by a browser run with no window.
+
+  shot PAGE [--width N]... [--height N] [--dark] [--out DIR] [--name WORD]
+
+PAGE is an address (http, https, file) or a file. With no --width the widths are 390 (a phone) and 1280 (a desk).
+The files are DIR/WORD-WIDTH.png (-dark before .png with --dark) and their paths are printed, one on a line.
+DIR is `shots` in the temporary folder when not given. The browser is the program named in AGENT_KIT_BROWSER,
+else the first of BROWSERS on PATH. It gets a profile of its own, made new and removed after.
+Exit codes: 0 done, 1 the browser failed or wrote no picture, 2 a mistake in the call or no browser."""
+import os, re, shutil, subprocess, sys, tempfile
+
+BROWSERS = ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable", "chrome")
+WIDTHS = (390, 1280)
+HEIGHT = 1600
+LIMIT = 4000            # the largest width and height asked for
+WAIT = 60               # seconds the browser has for one picture
+WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+
+
+class Mistake(Exception):
+    pass
+
+
+def number(key, value):
+    if not value.isdigit() or not 1 <= int(value) <= LIMIT:
+        raise Mistake("%s %s: a whole number of pixels, 1 to %d" % (key, value, LIMIT))
+    return int(value)
+
+
+def parse(args):
+    """(the page, the widths, the height, dark, the folder, the name)"""
+    page, widths, height, dark, out, name, i = None, [], HEIGHT, False, None, None, 0
+    while i < len(args):
+        a = args[i]
+        i += 1
+        if a == "--dark":
+            dark = True
+        elif a in ("--width", "--height", "--out", "--name"):
+            if i >= len(args):
+                raise Mistake("%s needs a value" % a)
+            v = args[i]
+            i += 1
+            if a == "--width":
+                widths.append(number(a, v))
+            elif a == "--height":
+                height = number(a, v)
+            elif a == "--out":
+                out = v
+            elif not WORD.fullmatch(v):
+                raise Mistake("--name %s: a word of letters, digits and . _ -" % v)
+            else:
+                name = v
+        elif a.startswith("-"):
+            raise Mistake("unknown option %s" % a)
+        elif page is None:
+            page = a
+        else:
+            raise Mistake("one page only, not %s and %s" % (page, a))
+    if page is None:
+        raise Mistake("the page is missing: shot PAGE, an address or a file")
+    return page, widths or list(WIDTHS), height, dark, out, name
+
+
+def address(page):
+    """the page as an address: a file that is there becomes file://"""
+    if re.match(r"(https?|file)://", page):
+        return page
+    if not os.path.isfile(page):
+        raise Mistake("%s: neither an address (http, https, file) nor a file that is there" % page)
+    return "file://" + os.path.abspath(page)
+
+
+def word_of(url):
+    """a name for the files, from the address: its last part, else its host"""
+    parts = [p for p in re.split(r"[/?#]", url.split("://", 1)[1]) if p]
+    last = (re.sub(r"\.[A-Za-z0-9]+$", "", parts[-1]) if len(parts) > 1 else parts[0]) if parts else ""
+    return re.sub(r"[^A-Za-z0-9._-]+", "-", last).strip("-.") or "page"
+
+
+def browser(environ):
+    named = environ.get("AGENT_KIT_BROWSER")
+    for b in [named] if named else BROWSERS:
+        found = shutil.which(b)
+        if found:
+            return found
+    raise Mistake("no browser: %s" % ("AGENT_KIT_BROWSER names %s, which is not there" % named if named else
+                                      "none of %s is on PATH; install Chromium, or name a browser in "
+                                      "AGENT_KIT_BROWSER" % ", ".join(BROWSERS)))
+
+
+def main(args, environ):
+    try:
+        page, widths, height, dark, out, name = parse(args)
+        url, program = address(page), browser(environ)
+    except Mistake as e:
+        print("shot: %s" % e, file=sys.stderr)
+        return 2
+    out = out or os.path.join(environ.get("TMPDIR") or tempfile.gettempdir(), "shots")
+    os.makedirs(out, exist_ok=True)
+    name = name or word_of(url)
+    for w in dict.fromkeys(widths):
+        path = os.path.abspath(os.path.join(out, "%s-%d%s.png" % (name, w, "-dark" if dark else "")))
+        if os.path.exists(path):
+            os.remove(path)        # an old picture is never taken for the new one
+        profile = tempfile.mkdtemp(prefix="shot-")
+        argv = [program, "--headless=new", "--hide-scrollbars", "--force-device-scale-factor=1",
+                "--user-data-dir=" + profile, "--window-size=%d,%d" % (w, height), "--virtual-time-budget=5000",
+                "--screenshot=" + path] + (["--force-dark-mode"] if dark else []) + [url]
+        try:
+            done = subprocess.run(argv, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=WAIT)
+            failed = "exit code %d: %s" % (done.returncode, done.stderr.decode("utf-8", "replace").strip()[-300:]) \
+                if done.returncode else None
+        except subprocess.TimeoutExpired:
+            failed = "no picture in %d seconds" % WAIT
+        except OSError as e:
+            failed = str(e)
+        finally:
+            shutil.rmtree(profile, ignore_errors=True)
+        if failed is None and not os.path.isfile(path):
+            failed = "it wrote no picture"
+        if failed:
+            print("shot: the browser %s failed at the width %d: %s" % (program, w, failed), file=sys.stderr)
+            return 1
+        print(path)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:], os.environ))

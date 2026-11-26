@@ -1,0 +1,7 @@
+{
+ "name": "dev",
+ "description": "Architecture, development and deploy: writing and changing code, the structure of an application and of a system, the decisions, what runs and where.",
+ "author": {
+  "name": "agent-kit"
+ }
+}

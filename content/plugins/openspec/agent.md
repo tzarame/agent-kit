@@ -1,0 +1,1 @@
+In a project with an `openspec/` folder, when the tasks of a change are done, give the review to a subagent that did not write the code: it reads what the change's commits changed against the change's specs and tasks, and reports what is wrong, with file and line. Passing tests do not replace this review. Fix the findings, then run the review once more.
